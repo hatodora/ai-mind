@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getModel } from "@/lib/gemini";
+import { getModel } from "@/lib/groq";
 
 export const runtime = "nodejs";
 
