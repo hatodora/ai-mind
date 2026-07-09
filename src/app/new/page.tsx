@@ -15,59 +15,70 @@ export default function NewMapPage() {
   const router = useRouter();
   const create = useMindMapStore((s) => s.create);
   const [theme, setTheme] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const handleCreate = () => {
-    if (!theme.trim()) return;
+    // 二重クリック・Enter連打によるマップ重複作成を防ぐ
+    if (creating || !theme.trim()) return;
+    setCreating(true);
     const map = create(theme.trim());
     router.push(`/map/${map.id}`);
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-pink-50 px-4 py-8">
+    <main className="min-h-screen bg-page px-5 py-10 sm:py-16">
       <div className="mx-auto max-w-md">
         <button
           onClick={() => router.back()}
-          className="mb-6 text-sm text-slate-600 hover:text-slate-900"
+          className="icon-circle anim-float-up mb-10"
+          aria-label="戻る"
         >
-          ← 戻る
+          <span className="font-display text-lg leading-none">←</span>
         </button>
 
-        <h1 className="mb-2 text-2xl font-bold text-slate-800">
-          何について考えたい？
-        </h1>
-        <p className="mb-6 text-sm text-slate-600">
-          中心に置くテーマを1つ決めよう
-        </p>
+        <div className="anim-float-up" style={{ animationDelay: "0.06s" }}>
+          <div className="micro-label mb-2">テーマ</div>
+          <h1 className="mb-2.5 font-display text-[30px] font-bold leading-snug tracking-tight">
+            何について考えたい？
+          </h1>
+          <p className="mb-8 text-sm leading-relaxed text-muted">
+            中心に置くテーマを1つ決めよう
+          </p>
 
-        <input
-          type="text"
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          placeholder="例: 転職について考えたい"
-          className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-base focus:border-orange-400 focus:outline-none"
-          autoFocus
-        />
+          <input
+            type="text"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            placeholder="例: 転職について考えたい"
+            className="w-full rounded-[12px] border border-line bg-card px-5 py-4 text-[15px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2"
+            autoFocus
+          />
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              onClick={() => setTheme(ex)}
-              className="rounded-full bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm hover:bg-orange-50"
-            >
-              {ex}
-            </button>
-          ))}
+          <div className="mt-5 flex flex-wrap gap-2">
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                onClick={() => setTheme(ex)}
+                className={`rounded-full px-4 py-2 text-xs transition-all ${
+                  theme === ex
+                    ? "bg-accent font-bold text-on-accent"
+                    : "border border-line bg-card text-muted hover:border-accent/50 hover:text-accent-soft"
+                }`}
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleCreate}
+            disabled={!theme.trim() || creating}
+            className="btn-lift btn-primary mt-10 w-full py-4 text-[15px] disabled:opacity-40"
+          >
+            マインドマップを始める
+          </button>
         </div>
-
-        <button
-          onClick={handleCreate}
-          disabled={!theme.trim()}
-          className="mt-8 w-full rounded-2xl bg-gradient-to-r from-orange-400 to-pink-500 px-6 py-4 text-lg font-bold text-white shadow-lg transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-40"
-        >
-          マインドマップを始める
-        </button>
       </div>
     </main>
   );

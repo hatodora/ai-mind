@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Cloud Functions は独立したパッケージ（functions/tsconfig.json 管理）
+    "functions/**",
   ]),
 ]);
 

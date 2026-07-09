@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import ReactFlow, {
-  Background,
   Controls,
   type Edge,
   type Node,
   type NodeChange,
+  type ReactFlowInstance,
   applyNodeChanges,
 } from "reactflow";
 import "reactflow/dist/style.css";
@@ -15,12 +15,29 @@ import { CustomNode } from "./CustomNode";
 
 const nodeTypes = { mindNode: CustomNode };
 
+const edgeOptions = {
+  type: "default", // ベジェ曲線
+  className: "edge-draw",
+  style: { stroke: "rgba(129, 216, 208, 0.4)", strokeWidth: 1.5 },
+};
+
 export function MindMapCanvas() {
   const map = useMindMapStore((s) => s.map);
   const selectedNodeId = useMindMapStore((s) => s.selectedNodeId);
   const setSelected = useMindMapStore((s) => s.setSelected);
   const updatePos = useMindMapStore((s) => s.updateNodePosition);
   const persist = useMindMapStore((s) => s.persist);
+  const layoutVersion = useMindMapStore((s) => s.layoutVersion);
+  const instanceRef = useRef<ReactFlowInstance | null>(null);
+
+  // 「整える」実行後、整列結果が画面に収まるようにフィットする
+  useEffect(() => {
+    if (layoutVersion === 0) return;
+    const t = setTimeout(() => {
+      instanceRef.current?.fitView({ padding: 0.4, duration: 400 });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [layoutVersion]);
 
   const nodes: Node[] = useMemo(
     () =>
@@ -40,8 +57,7 @@ export function MindMapCanvas() {
         id: e.id,
         source: e.source,
         target: e.target,
-        animated: false,
-        style: { stroke: "#94a3b8", strokeWidth: 2 },
+        ...edgeOptions,
       })) ?? [],
     [map?.edges],
   );
@@ -63,20 +79,25 @@ export function MindMapCanvas() {
   );
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      onNodesChange={onNodesChange}
-      onNodeClick={(_, node) => setSelected(node.id)}
-      onPaneClick={() => setSelected(null)}
-      fitView
-      fitViewOptions={{ padding: 0.4 }}
-      minZoom={0.2}
-      maxZoom={2}
-    >
-      <Background gap={20} color="#e2e8f0" />
-      <Controls showInteractive={false} />
-    </ReactFlow>
+    <div className="canvas-paper h-full w-full">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onInit={(instance) => {
+          instanceRef.current = instance;
+        }}
+        onNodeClick={(_, node) => setSelected(node.id)}
+        onPaneClick={() => setSelected(null)}
+        fitView
+        fitViewOptions={{ padding: 0.4 }}
+        minZoom={0.2}
+        maxZoom={2}
+        style={{ background: "transparent" }}
+      >
+        <Controls showInteractive={false} />
+      </ReactFlow>
+    </div>
   );
 }

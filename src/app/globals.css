@@ -1,26 +1,255 @@
 @import "tailwindcss";
 
+/* ============================================================
+   思索 / Mindmap — v2 ダークモダン デザイントークン
+   BG #2a2a2a / Text #f5f5f5 / Accent (Tiffany Blue) #0ABAB5
+   Accent Soft #81D8D0 / Radius 12px 基準 / Heading: Satoshi
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 背景レイヤー（深 → 浅） */
+  --canvas: #242424;
+  --page: #2a2a2a;
+  --card: #333333;
+  --card-raised: #3a3a3a;
+  --line: #424242;
+
+  /* テキスト */
+  --ink: #f5f5f5;
+  --muted: #a3a3a3;
+  --placeholder: #6f6f6f;
+
+  /* ティファニーブルー */
+  --accent: #0abab5;
+  --accent-soft: #81d8d0;
+  --accent-deep: #078e8a;
+  --on-accent: #10302e;
+
+  /* アクセント派生ティント（ダーク背景に混ぜる） */
+  --tint-accent: rgba(10, 186, 181, 0.1);
+  --tint-accent-strong: rgba(10, 186, 181, 0.18);
+  --ai-line: rgba(129, 216, 208, 0.45);
+
+  /* 状態色 */
+  --warm: #fbbf24;
+  --tint-warm: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --tint-danger: rgba(248, 113, 113, 0.12);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-canvas: var(--canvas);
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-card-raised: var(--card-raised);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-placeholder: var(--placeholder);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
+  --color-on-accent: var(--on-accent);
+  --color-tint-accent: var(--tint-accent);
+  --color-tint-accent-strong: var(--tint-accent-strong);
+  --color-ai-line: var(--ai-line);
+  --color-warm: var(--warm);
+  --color-tint-warm: var(--tint-warm);
+  --color-danger: var(--danger);
+  --color-tint-danger: var(--tint-danger);
+  --font-sans: var(--font-noto-sans-jp), sans-serif;
+  --font-display: var(--font-satoshi), var(--font-noto-sans-jp), sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-noto-sans-jp), sans-serif;
+}
+
+/* ============ モーション（静止画は端正に、動きで人間味を） ============ */
+
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes drawEdge {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes ringPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(10, 186, 181, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(10, 186, 181, 0);
+  }
+}
+
+@keyframes adoptFlash {
+  0% {
+    background-color: rgba(10, 186, 181, 0.25);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.anim-float-up {
+  animation: floatUp 0.5s ease-out both;
+}
+
+.anim-ring-pulse {
+  animation: ringPulse 1.6s infinite;
+}
+
+.anim-adopt-flash {
+  animation: adoptFlash 0.9s ease-out both;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: typing 1.2s infinite;
+}
+
+/* マイクロラベル（見出し上の小さな英字ラベル） */
+.micro-label {
+  font-family: var(--font-satoshi), sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ホバーで2px持ち上がる触覚的なボタン */
+.btn-lift {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    filter 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.btn-lift:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.btn-lift:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+/* プライマリボタン（ティファニーブルー地 × ダーク文字） */
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 12px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px -10px rgba(10, 186, 181, 0.55);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* セカンダリボタン（カード地 × 細枠） */
+.btn-secondary {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--card-raised);
+}
+
+/* カード（暗い階調と影で区切る） */
+.card-soft {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* 円形アイコンボタン */
+.icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease;
+}
+.icon-circle:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+/* キャンバスのドット方眼紙（ダーク） */
+.canvas-paper {
+  background-color: var(--canvas);
+  background-image: radial-gradient(#3a3a3a 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* React Flow のエッジ描画アニメーション */
+.edge-draw {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawEdge 0.9s ease-out forwards;
+}
+
+/* React Flow ズームコントロールをダークカード調に
+   （dist/style.css が後から読み込まれるため詳細度を上げる） */
+.react-flow .react-flow__controls {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+}
+.react-flow .react-flow__controls-button {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  width: 38px;
+  height: 36px;
+}
+.react-flow .react-flow__controls-button:hover {
+  background: var(--card-raised);
+}
+.react-flow .react-flow__controls-button svg {
+  fill: var(--muted);
+}
+.react-flow__attribution {
+  background: transparent;
+  color: var(--placeholder);
 }

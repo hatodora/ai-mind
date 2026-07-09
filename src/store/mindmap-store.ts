@@ -2,17 +2,20 @@
 
 import { create } from "zustand";
 import type { MindMap, MindMapEdge, MindMapNode, Turn } from "@/types";
-import { newId, storage } from "@/lib/storage";
-import { autoPosition } from "@/lib/layout";
+import { newId } from "@/lib/storage";
+import { getRepo } from "@/lib/repo";
+import { autoPosition, tidyLayout } from "@/lib/layout";
 
 interface State {
   map: MindMap | null;
   selectedNodeId: string | null;
   loading: boolean;
+  /** 整列のたびに増える。キャンバス側が fitView するための合図 */
+  layoutVersion: number;
 }
 
 interface Actions {
-  load: (id: string) => void;
+  load: (id: string) => Promise<void>;
   create: (theme: string) => MindMap;
   setSelected: (id: string | null) => void;
   addNode: (
@@ -29,17 +32,45 @@ interface Actions {
   updateNodePosition: (id: string, x: number, y: number) => void;
   updateNodeLabel: (id: string, label: string) => void;
   setTurn: (turn: Turn) => void;
+  /** AIトークンゲージを消費する（UP-02）。足りなければ false */
+  spendGauge: (amount: number) => boolean;
+  /** ノードをツリー状に自動整列する（UP-05） */
+  arrange: () => void;
   persist: () => void;
+}
+
+/** 保存はUI操作を待たせない。失敗はコンソールに残す（オフライン時など） */
+function saveAsync(map: MindMap) {
+  void getRepo()
+    .save(map)
+    .catch((e) => console.error("マップの保存に失敗しました", e));
 }
 
 export const useMindMapStore = create<State & Actions>((set, get) => ({
   map: null,
   selectedNodeId: null,
   loading: false,
+  layoutVersion: 0,
 
-  load: (id) => {
-    const map = storage.get(id);
-    set({ map, selectedNodeId: map?.nodes[0]?.id ?? null });
+  load: async (id) => {
+    set({ loading: true });
+    let raw: MindMap | null = null;
+    try {
+      raw = await getRepo().get(id);
+    } catch (e) {
+      console.error("マップの読み込みに失敗しました", e);
+    }
+    // 旧データには aiGauge が無いため補完する（1 = すぐAIに1回相談できる）。
+    // AI提案はローカル状態のため復元できない。「AIの番」のまま保存されていると
+    // 入力UIが出ず操作不能になるので、読み込み時はユーザーの番に戻す。
+    const map = raw
+      ? {
+          ...raw,
+          aiGauge: raw.aiGauge ?? 1,
+          currentTurn: "user" as const,
+        }
+      : null;
+    set({ map, selectedNodeId: map?.nodes[0]?.id ?? null, loading: false });
   },
 
   create: (theme) => {
@@ -58,10 +89,11 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       edges: [],
       currentTurn: "user",
       turnCount: 0,
+      aiGauge: 0, // まずは自分の頭で1つ考えてから
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    storage.save(map);
+    saveAsync(map);
     set({ map, selectedNodeId: rootId });
     return map;
   },
@@ -87,9 +119,11 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       ...map,
       nodes: [...map.nodes, node],
       edges: [...map.edges, edge],
+      // 自分の頭で考えた分だけ、AIに相談できる（UP-02）
+      aiGauge: role === "user" ? map.aiGauge + 1 : map.aiGauge,
     };
     set({ map: updated });
-    storage.save(updated);
+    saveAsync(updated);
     return node;
   },
 
@@ -124,7 +158,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       edges: [...map.edges, ...newEdges],
     };
     set({ map: updated });
-    storage.save(updated);
+    saveAsync(updated);
     return newNodes;
   },
 
@@ -156,7 +190,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
           ? updated.nodes[0]?.id ?? null
           : get().selectedNodeId,
     });
-    storage.save(updated);
+    saveAsync(updated);
   },
 
   updateNodePosition: (id, x, y) => {
@@ -181,7 +215,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       ),
     };
     set({ map: updated });
-    storage.save(updated);
+    saveAsync(updated);
   },
 
   setTurn: (turn) => {
@@ -193,11 +227,34 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       turnCount: turn === "user" ? map.turnCount + 1 : map.turnCount,
     };
     set({ map: updated });
-    storage.save(updated);
+    saveAsync(updated);
+  },
+
+  spendGauge: (amount) => {
+    const map = get().map;
+    if (!map) return false;
+    const ok = map.aiGauge >= amount;
+    // 一括採用ペナルティはマイナス残高（＝借金）も許す。
+    // 返済し終わるまでAIには相談できない。
+    const updated: MindMap = { ...map, aiGauge: map.aiGauge - amount };
+    set({ map: updated });
+    saveAsync(updated);
+    return ok;
+  },
+
+  arrange: () => {
+    const map = get().map;
+    if (!map) return;
+    const updated: MindMap = {
+      ...map,
+      nodes: tidyLayout(map.nodes, map.edges),
+    };
+    set({ map: updated, layoutVersion: get().layoutVersion + 1 });
+    saveAsync(updated);
   },
 
   persist: () => {
     const map = get().map;
-    if (map) storage.save(map);
+    if (map) saveAsync(map);
   },
 }));

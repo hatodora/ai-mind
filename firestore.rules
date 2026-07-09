@@ -1,0 +1,142 @@
+rules_version = '2';
+
+// ============================================================
+// 思索 / Mindmap — Firestore セキュリティルール (SEC-01)
+// 方針:
+//  - デフォルト全拒否。許可は明示的に最小限のみ
+//  - メール確認済み（2段階確認完了）ユーザーのみ書き込み可
+//  - 開発者/運用者は Admin カスタムクレーム（admin: true）で別権限
+//    （設定は Admin SDK: setCustomUserClaims で行う。クライアントからは不可）
+//  - 将来の共有機能（Phase 4）: visibility + sharedWith{uid: role} で
+//    viewer / editor を細かく制御できる設計
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- 共通ヘルパー ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    // メール確認済み = 2段階確認完了ユーザーのみ実質的な操作を許可
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    // 開発・運用ユーザー（カスタムクレーム）。一般フローとは別枠
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // ---------- users/{uid}: プロフィール（NF-06） ----------
+    match /users/{uid} {
+      function isSelf() {
+        return isVerified() && request.auth.uid == uid;
+      }
+      // フィールド単位の検証。型・桁・不変条件をすべて強制する
+      function validUser() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(
+            ['uid', 'email', 'displayName', 'age', 'photoURL', 'role',
+             'createdAt', 'updatedAt'])
+          && d.uid == uid
+          && d.email is string && d.email.size() <= 320
+          && d.displayName is string
+          && d.displayName.size() >= 1 && d.displayName.size() <= 30
+          && d.age is int && d.age >= 5 && d.age <= 120
+          && (d.photoURL == null
+              || (d.photoURL is string && d.photoURL.size() <= 2048))
+          && d.createdAt is number && d.updatedAt is number;
+      }
+      // 一般ユーザーは自分を admin に昇格できない
+      function roleUnchanged() {
+        return request.resource.data.role == 'user'
+          || (resource != null && request.resource.data.role == resource.data.role);
+      }
+
+      allow get: if isSelf() || isAdmin();
+      allow list: if isAdmin();
+      allow create: if (isSelf() && validUser() && request.resource.data.role == 'user')
+                    || isAdmin();
+      allow update: if (isSelf() && validUser() && roleUnchanged())
+                    || isAdmin();
+      allow delete: if isSelf() || isAdmin();
+
+      // レートリミット等の内部データは Admin SDK（Cloud Functions）専用
+      match /private/{docId} {
+        allow read, write: if false;
+      }
+    }
+
+    // ---------- maps/{mapId}: マインドマップ ----------
+    match /maps/{mapId} {
+      function isOwner() {
+        return isVerified() && resource.data.ownerId == request.auth.uid;
+      }
+      // 共有ロール取得（Phase 4 の共有機能に対応済み）
+      function shareRole() {
+        return resource.data.sharedWith[request.auth.uid];
+      }
+      function canRead() {
+        return isAdmin()
+          || isOwner()
+          || resource.data.visibility == 'public'
+          || (isVerified()
+              && resource.data.visibility == 'shared'
+              && request.auth.uid in resource.data.sharedWith);
+      }
+      function canEdit() {
+        return isAdmin()
+          || isOwner()
+          || (isVerified()
+              && resource.data.visibility == 'shared'
+              && shareRole() == 'editor');
+      }
+      function validMap() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(
+            ['id', 'theme', 'nodes', 'edges', 'currentTurn', 'turnCount',
+             'aiGauge', 'createdAt', 'updatedAt', 'ownerId', 'visibility',
+             'sharedWith'])
+          && d.id == mapId
+          && d.theme is string && d.theme.size() >= 1 && d.theme.size() <= 200
+          && d.nodes is list && d.nodes.size() <= 500
+          && d.edges is list && d.edges.size() <= 1000
+          && d.currentTurn in ['user', 'ai']
+          && d.turnCount is int && d.turnCount >= 0
+          && d.aiGauge is number
+          && d.ownerId is string
+          && d.visibility in ['private', 'shared', 'public']
+          && d.sharedWith is map
+          && d.createdAt is number && d.updatedAt is number;
+      }
+      // 共有相手（editor）は内容を編集できるが、
+      // 所有者・公開範囲・共有設定は所有者にしか変更させない
+      function aclUnchanged() {
+        return request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.visibility == resource.data.visibility
+          && request.resource.data.sharedWith == resource.data.sharedWith;
+      }
+
+      allow read: if canRead();
+      allow create: if isAdmin()
+        || (isVerified()
+            && request.resource.data.ownerId == request.auth.uid
+            && validMap());
+      allow update: if isAdmin()
+        || (canEdit()
+            && validMap()
+            && (isOwner() || aclUnchanged()));
+      allow delete: if isAdmin() || isOwner();
+    }
+
+    // ---------- aiCache: AI応答キャッシュ（Cloud Functions 専用） ----------
+    match /aiCache/{key} {
+      allow read, write: if false;
+    }
+
+    // ---------- 上記以外はすべて拒否 ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

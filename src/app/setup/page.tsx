@@ -1,0 +1,135 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useAuth, randomDisplayName } from "@/contexts/AuthContext";
+
+/**
+ * プロフィール登録（NF-06）。
+ * 年齢は必須（UP-06 年齢別AI応答で利用）。
+ * 表示名は任意 — 未入力ならランダム生成。
+ * アバター（写真）は任意 — Google アカウントの写真があれば引き継ぐ。
+ */
+export default function SetupPage() {
+  const router = useRouter();
+  const { user, profile, initializing, needsVerification, saveProfile } =
+    useAuth();
+
+  const [displayName, setDisplayName] = useState("");
+  const [age, setAge] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [placeholder] = useState(randomDisplayName);
+
+  useEffect(() => {
+    if (initializing) return;
+    if (!user || needsVerification) {
+      router.replace("/login");
+      return;
+    }
+    if (profile) {
+      router.replace("/");
+    }
+  }, [initializing, user, needsVerification, profile, router]);
+
+  const ageNum = Number(age);
+  const ageValid = Number.isInteger(ageNum) && ageNum >= 5 && ageNum <= 120;
+
+  const handleSubmit = async () => {
+    if (!ageValid || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await saveProfile({ displayName, age: ageNum });
+      router.replace("/");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "保存に失敗しました");
+      setBusy(false);
+    }
+  };
+
+  if (initializing || !user) return null;
+
+  return (
+    <main className="min-h-screen bg-page px-5 py-10 sm:py-16">
+      <div className="mx-auto max-w-md">
+        <div className="anim-float-up">
+          <div className="micro-label mb-2">Profile</div>
+          <h1 className="mb-2.5 font-display text-[30px] font-bold leading-snug tracking-tight">
+            あなたのことを教えてください
+          </h1>
+          <p className="mb-8 text-sm leading-relaxed text-muted">
+            年齢に合わせて AI の言葉づかいを調整します
+          </p>
+
+          {/* アバター（任意・Googleの写真を引き継ぎ） */}
+          <div className="mb-6 flex items-center gap-4">
+            {user.photoURL ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.photoURL}
+                alt="アバター"
+                className="h-14 w-14 rounded-full border border-line object-cover"
+              />
+            ) : (
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-tint-accent-strong font-display text-lg font-bold text-accent-soft">
+                {(displayName || placeholder).charAt(0)}
+              </span>
+            )}
+            <p className="text-xs leading-relaxed text-muted">
+              アバターは任意です。
+              {user.photoURL
+                ? "Google アカウントの写真を使います。"
+                : "あとから設定できます。"}
+            </p>
+          </div>
+
+          <label className="mb-1.5 block text-[13px] font-bold">
+            表示名 <span className="font-normal text-muted">（任意）</span>
+          </label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder={`未入力なら「${placeholder}」になります`}
+            maxLength={30}
+            className="mb-5 w-full rounded-[12px] border border-line bg-card px-5 py-3.5 text-[15px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2"
+          />
+
+          <label className="mb-1.5 block text-[13px] font-bold">
+            年齢 <span className="font-normal text-danger">（必須）</span>
+          </label>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+            placeholder="例: 16"
+            min={5}
+            max={120}
+            className="w-full rounded-[12px] border border-line bg-card px-5 py-3.5 text-[15px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2"
+          />
+          {age !== "" && !ageValid && (
+            <p className="mt-1.5 text-[11px] text-danger">
+              5〜120 の整数で入力してください
+            </p>
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={!ageValid || busy}
+            className="btn-lift btn-primary mt-8 w-full py-4 text-[15px] disabled:opacity-40"
+          >
+            {busy ? "保存中…" : "はじめる"}
+          </button>
+
+          {error && (
+            <div className="mt-4 rounded-[12px] bg-tint-danger px-4 py-3 text-[13px] text-danger">
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
