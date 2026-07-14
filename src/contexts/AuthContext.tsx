@@ -24,7 +24,8 @@ import {
   isFirebaseConfigured,
 } from "@/lib/firebase";
 import { createFirestoreRepo, localRepo, setRepo } from "@/lib/repo";
-import type { UserProfile } from "@/types";
+import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
+import type { AssistLevel, UserProfile } from "@/types";
 
 /** 表示名未入力時のランダム生成（例: 思索家_k3x9pz） */
 export function randomDisplayName(): string {
@@ -54,6 +55,7 @@ interface AuthState {
     displayName?: string;
     age: number;
     photoURL?: string | null;
+    assistLevel?: AssistLevel;
   }) => Promise<void>;
 }
 
@@ -139,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       displayName?: string;
       age: number;
       photoURL?: string | null;
+      assistLevel?: AssistLevel;
     }) => {
       const u = firebaseAuth().currentUser;
       if (!u) throw new Error("ログインしていません");
@@ -149,6 +152,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         displayName: input.displayName?.trim() || randomDisplayName(),
         age: input.age,
         photoURL: input.photoURL ?? u.photoURL ?? null,
+        assistLevel:
+          input.assistLevel ?? profile?.assistLevel ?? DEFAULT_ASSIST_LEVEL,
         role: profile?.role ?? "user",
         createdAt: profile?.createdAt ?? now,
         updatedAt: now,

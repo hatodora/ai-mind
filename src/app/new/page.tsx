@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMindMapStore } from "@/store/mindmap-store";
+import { useAuth } from "@/contexts/AuthContext";
+import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
 
 const EXAMPLES = [
   "転職について考えたい",
@@ -14,6 +16,7 @@ const EXAMPLES = [
 export default function NewMapPage() {
   const router = useRouter();
   const create = useMindMapStore((s) => s.create);
+  const { profile } = useAuth();
   const [theme, setTheme] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -21,7 +24,8 @@ export default function NewMapPage() {
     // 二重クリック・Enter連打によるマップ重複作成を防ぐ
     if (creating || !theme.trim()) return;
     setCreating(true);
-    const map = create(theme.trim());
+    // プロフィールの既定レベルを引き継ぐ（未設定なら標準）
+    const map = create(theme.trim(), profile?.assistLevel ?? DEFAULT_ASSIST_LEVEL);
     router.push(`/map/${map.id}`);
   };
 

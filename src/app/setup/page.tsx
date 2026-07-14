@@ -3,6 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth, randomDisplayName } from "@/contexts/AuthContext";
+import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
+import type { AssistLevel } from "@/types";
+
+/** AIアシスト既定レベルの選択肢（UP-02） */
+const LEVEL_OPTIONS: { value: AssistLevel; label: string; hint: string }[] = [
+  { value: "level1", label: "たっぷり", hint: "1ノードでAI2回" },
+  { value: "level2", label: "標準", hint: "1ノードでAI1回" },
+  { value: "level3", label: "ひかえめ", hint: "3ノードでAI1回" },
+  { value: "off", label: "AIなし", hint: "提案を使わない" },
+];
 
 /**
  * プロフィール登録（NF-06）。
@@ -17,6 +27,8 @@ export default function SetupPage() {
 
   const [displayName, setDisplayName] = useState("");
   const [age, setAge] = useState("");
+  const [assistLevel, setAssistLevel] =
+    useState<AssistLevel>(DEFAULT_ASSIST_LEVEL);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placeholder] = useState(randomDisplayName);
@@ -40,7 +52,7 @@ export default function SetupPage() {
     setBusy(true);
     setError(null);
     try {
-      await saveProfile({ displayName, age: ageNum });
+      await saveProfile({ displayName, age: ageNum, assistLevel });
       router.replace("/");
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
@@ -114,6 +126,42 @@ export default function SetupPage() {
               5〜120 の整数で入力してください
             </p>
           )}
+
+          {/* AIアシストの既定レベル（UP-02）。マップごとに後から変更できる */}
+          <label className="mb-1.5 mt-6 block text-[13px] font-bold">
+            AIアシスト <span className="font-normal text-muted">（あとで変更可）</span>
+          </label>
+          <p className="mb-2.5 text-xs leading-relaxed text-muted">
+            自分でノードを増やすほどAIに相談できます。強さの既定値を選んでください。
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {LEVEL_OPTIONS.map((opt) => {
+              const active = opt.value === assistLevel;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setAssistLevel(opt.value)}
+                  className={`rounded-[12px] px-3 py-2.5 text-left transition-all ${
+                    active
+                      ? "bg-accent text-on-accent"
+                      : "border border-line bg-card text-muted hover:border-accent/50 hover:text-accent-soft"
+                  }`}
+                >
+                  <span className="block text-[13px] font-bold">
+                    {opt.label}
+                  </span>
+                  <span
+                    className={`mt-0.5 block text-[11px] ${
+                      active ? "text-on-accent/80" : "text-placeholder"
+                    }`}
+                  >
+                    {opt.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
           <button
             onClick={handleSubmit}

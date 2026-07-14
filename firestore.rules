@@ -36,8 +36,8 @@ service cloud.firestore {
       function validUser() {
         let d = request.resource.data;
         return d.keys().hasOnly(
-            ['uid', 'email', 'displayName', 'age', 'photoURL', 'role',
-             'createdAt', 'updatedAt'])
+            ['uid', 'email', 'displayName', 'age', 'photoURL', 'assistLevel',
+             'role', 'createdAt', 'updatedAt'])
           && d.uid == uid
           && d.email is string && d.email.size() <= 320
           && d.displayName is string
@@ -45,6 +45,8 @@ service cloud.firestore {
           && d.age is int && d.age >= 5 && d.age <= 120
           && (d.photoURL == null
               || (d.photoURL is string && d.photoURL.size() <= 2048))
+          && (!('assistLevel' in d)
+              || d.assistLevel in ['level1', 'level2', 'level3', 'off'])
           && d.createdAt is number && d.updatedAt is number;
       }
       // 一般ユーザーは自分を admin に昇格できない
@@ -95,8 +97,8 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.keys().hasOnly(
             ['id', 'theme', 'nodes', 'edges', 'currentTurn', 'turnCount',
-             'aiGauge', 'createdAt', 'updatedAt', 'ownerId', 'visibility',
-             'sharedWith'])
+             'aiGauge', 'assistLevel', 'createdAt', 'updatedAt', 'ownerId',
+             'visibility', 'sharedWith'])
           && d.id == mapId
           && d.theme is string && d.theme.size() >= 1 && d.theme.size() <= 200
           && d.nodes is list && d.nodes.size() <= 500
@@ -104,6 +106,8 @@ service cloud.firestore {
           && d.currentTurn in ['user', 'ai']
           && d.turnCount is int && d.turnCount >= 0
           && d.aiGauge is number
+          && (!('assistLevel' in d)
+              || d.assistLevel in ['level1', 'level2', 'level3', 'off'])
           && d.ownerId is string
           && d.visibility in ['private', 'shared', 'public']
           && d.sharedWith is map
