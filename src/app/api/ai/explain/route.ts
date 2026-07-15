@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getModel } from "@/lib/groq";
 import { asAgeBand, asPersonality, personaAgeBlock } from "@/lib/ai-persona";
+import {
+  MAX_LABEL_LEN,
+  MAX_THEME_LEN,
+  asBoundedString,
+} from "@/lib/ai-validate";
 
 export const runtime = "nodejs";
 
@@ -14,7 +19,15 @@ interface RequestBody {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as RequestBody;
-    const { label, theme } = body;
+    // 認証なしで叩ける経路のため、型・長さを必ず検証する
+    const label = asBoundedString(body.label, MAX_LABEL_LEN);
+    const theme = asBoundedString(body.theme, MAX_THEME_LEN);
+    if (!label || !theme) {
+      return NextResponse.json(
+        { error: "リクエストが不正です" },
+        { status: 400 },
+      );
+    }
     // 年齢帯・人格（UP-06 / UP-04）で語り口を切り替える
     const ageBand = asAgeBand(body.ageBand);
     const personality = asPersonality(body.personality);

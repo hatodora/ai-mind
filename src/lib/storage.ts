@@ -37,5 +37,10 @@ export const storage = {
 };
 
 export function newId(): string {
+  // maps/{mapId} は全ユーザー共通のコレクションなので、
+  // 推測されにくく衝突しない UUID を使う（旧形式はフォールバック）
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }

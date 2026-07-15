@@ -17,7 +17,7 @@ export function getModel() {
         model: MODEL_NAME,
         messages: [{ role: "user", content: prompt }],
       });
-      const content = completion.choices[0].message.content ?? "";
+      const content = completion.choices[0]?.message?.content ?? "";
       return {
         response: {
           text: () => content,

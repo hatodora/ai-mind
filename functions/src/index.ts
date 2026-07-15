@@ -260,7 +260,14 @@ ${userNodes || "（まだ何もない）"}
     ) {
       throw new HttpsError("internal", "AI応答の形式が不正です");
     }
-    return { suggestions };
+    // 空要素を除き、件数をプロンプトの想定（2〜3個）に揃える
+    const cleaned = suggestions
+      .filter((s) => s.trim().length > 0)
+      .slice(0, 3);
+    if (cleaned.length === 0) {
+      throw new HttpsError("internal", "AIから提案を得られませんでした");
+    }
+    return { suggestions: cleaned };
   },
 );
 

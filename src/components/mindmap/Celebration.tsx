@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /** 紙吹雪の配色（デザイントークンに合わせる） */
 const COLORS = ["#0abab5", "#81d8d0", "#fbbf24", "#f5f5f5"];
@@ -34,10 +34,17 @@ export function Celebration({
   subtitle?: string;
   onDone: () => void;
 }) {
+  // onDone はインラインで渡されることが多く、依存に入れると
+  // 親の再レンダーのたびにタイマーが引き直されて演出が終わらなくなる。
+  // ref 経由で常に最新のコールバックを呼びつつ、タイマーは1回だけ張る。
+  const onDoneRef = useRef(onDone);
   useEffect(() => {
-    const t = setTimeout(onDone, 2400);
-    return () => clearTimeout(t);
+    onDoneRef.current = onDone;
   }, [onDone]);
+  useEffect(() => {
+    const t = setTimeout(() => onDoneRef.current(), 2400);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <div

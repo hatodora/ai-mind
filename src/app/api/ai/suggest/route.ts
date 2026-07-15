@@ -6,6 +6,13 @@ import {
   asAgeBand,
   asPersonality,
 } from "@/lib/ai-persona";
+import {
+  MAX_LABEL_LEN,
+  MAX_THEME_LEN,
+  asBoundedString,
+  asNodeList,
+  asSuggestions,
+} from "@/lib/ai-validate";
 
 export const runtime = "nodejs";
 
@@ -40,7 +47,19 @@ const SYSTEM_PROMPT = `あなたはユーザーの思考をサポートするマ
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as RequestBody;
-    const { theme, selectedNodeLabel, contextNodes } = body;
+    // 認証なしで叩ける経路のため、型・長さ・件数を必ず検証する
+    const theme = asBoundedString(body.theme, MAX_THEME_LEN);
+    const selectedNodeLabel = asBoundedString(
+      body.selectedNodeLabel,
+      MAX_LABEL_LEN,
+    );
+    if (!theme || !selectedNodeLabel) {
+      return NextResponse.json(
+        { error: "リクエストが不正です" },
+        { status: 400 },
+      );
+    }
+    const contextNodes = asNodeList(body.contextNodes);
     // 年齢帯・人格（UP-06 / UP-04）。提案は現行品質を保ちつつ薄く反映する
     const ageBand = asAgeBand(body.ageBand);
     const personality = asPersonality(body.personality);
@@ -70,12 +89,28 @@ ${userNodes || "（まだ何もない）"}
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       return NextResponse.json(
-        { error: "Failed to parse AI response", raw: text },
+        { error: "AI応答の解析に失敗しました" },
         { status: 500 },
       );
     }
 
-    const suggestions = JSON.parse(jsonMatch[0]) as string[];
+    // 文字列配列であることを検証（オブジェクト混入や空応答はエラーにする）
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      return NextResponse.json(
+        { error: "AI応答の解析に失敗しました" },
+        { status: 500 },
+      );
+    }
+    const suggestions = asSuggestions(parsed);
+    if (suggestions.length === 0) {
+      return NextResponse.json(
+        { error: "AIから提案を得られませんでした" },
+        { status: 500 },
+      );
+    }
     return NextResponse.json({ suggestions });
   } catch (error) {
     console.error("[api/ai/suggest]", error);

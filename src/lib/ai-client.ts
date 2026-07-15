@@ -35,8 +35,18 @@ async function callRoute<T>(path: string, payload: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || "AI request failed");
+  // ゲートウェイ由来の 502 等は JSON でないことがある。
+  // 生のパースエラーではなく読める日本語エラーにする
+  let json: { error?: string } | null = null;
+  try {
+    json = (await res.json()) as { error?: string };
+  } catch {
+    json = null;
+  }
+  if (!res.ok) {
+    throw new Error(json?.error || `AIリクエストに失敗しました (${res.status})`);
+  }
+  if (json === null) throw new Error("AI応答の解析に失敗しました");
   return json as T;
 }
 

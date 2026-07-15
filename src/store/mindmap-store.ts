@@ -235,12 +235,30 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
         }
       }
     }
+    // ゲージの返納（UP-02 の穴ふさぎ）: 「追加→削除」を繰り返すだけで
+    // ゲージが無限に貯まらないよう、削除したユーザーノードの分は
+    // 回復量と同じレートで差し引く。ただし回復が発生していたのは
+    // 解禁しきい値を超えた分だけなので、その範囲でのみ返納する。
+    const level = effectiveLevel(map.assistLevel);
+    const userCountBefore = countUserNodes(map.nodes);
+    const removedUserNodes = map.nodes.filter(
+      (n) => toRemove.has(n.id) && n.data.role === "user",
+    ).length;
+    const refundable = Math.max(
+      0,
+      Math.min(removedUserNodes, userCountBefore - UNLOCK_THRESHOLD),
+    );
+    const aiGauge =
+      level === "off"
+        ? map.aiGauge
+        : map.aiGauge - recoveryPerNode(level) * refundable;
     const updated: MindMap = {
       ...map,
       nodes: map.nodes.filter((n) => !toRemove.has(n.id)),
       edges: map.edges.filter(
         (e) => !toRemove.has(e.source) && !toRemove.has(e.target),
       ),
+      aiGauge,
     };
     set({
       map: updated,

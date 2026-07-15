@@ -270,6 +270,7 @@ export function ControlPanel() {
     setError(null);
     setAISuggestions([]);
     touch();
+    const requestMapId = map.id;
     try {
       const json = await aiSuggest({
         theme: map.theme,
@@ -282,9 +283,25 @@ export function ControlPanel() {
         ageBand,
         personality,
       });
+      // 応答待ちの間に別マップへ移動していたら、何も反映しない
+      // （別マップのゲージを誤って消費しないため）
+      if (useMindMapStore.getState().map?.id !== requestMapId) return;
+      // 文字列のみ・重複除去。空ならゲージを消費せずエラー扱いにする
+      // （空のまま「AIの番」にすると操作不能になるため）
+      const suggestions = Array.from(
+        new Set(
+          (json.suggestions ?? []).filter(
+            (s) => typeof s === "string" && s.trim().length > 0,
+          ),
+        ),
+      );
+      if (suggestions.length === 0) {
+        setError("AIから提案を得られませんでした。もう一度お試しください");
+        return;
+      }
       spendGauge(AI_REQUEST_COST);
       noteAIRequest();
-      setAISuggestions(json.suggestions || []);
+      setAISuggestions(suggestions);
       setTurn("ai");
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
@@ -324,6 +341,7 @@ export function ControlPanel() {
   const handleExplain = async () => {
     if (!selected) return;
     setLoading("explain");
+    setError(null);
     setExplanation(null);
     touch();
     try {
@@ -343,6 +361,7 @@ export function ControlPanel() {
 
   const handleReview = async () => {
     setLoading("review");
+    setError(null);
     setReview(null);
     touch();
     try {
