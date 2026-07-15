@@ -17,6 +17,119 @@ function relativeTime(ts: number): string {
   return new Date(ts).toLocaleDateString("ja-JP");
 }
 
+/**
+ * 思考のバランスリング（UP-03）。
+ * これまでの全ノードのうち、自分の言葉 vs AI提案の割合をドーナツで示す。
+ */
+function ThinkRing({
+  userNodes,
+  aiNodes,
+}: {
+  userNodes: number;
+  aiNodes: number;
+}) {
+  const total = userNodes + aiNodes;
+  if (total === 0) return null;
+  const R = 48;
+  const C = 2 * Math.PI * R;
+  const f = userNodes / total;
+  const pct = Math.round(f * 100);
+
+  return (
+    <div className="card-soft flex flex-wrap items-center gap-x-7 gap-y-5 p-5 sm:p-6">
+      <svg
+        viewBox="0 0 120 120"
+        className="h-28 w-28 shrink-0 sm:h-32 sm:w-32"
+        role="img"
+        aria-label={`自分の考え ${pct}%、AIの提案 ${100 - pct}%`}
+      >
+        {/* 下地 */}
+        <circle
+          cx="60"
+          cy="60"
+          r={R}
+          fill="none"
+          stroke="var(--card-raised)"
+          strokeWidth="13"
+        />
+        {/* AI（残り） */}
+        <circle
+          cx="60"
+          cy="60"
+          r={R}
+          fill="none"
+          stroke="var(--warm)"
+          strokeWidth="13"
+          strokeDasharray={`${C * (1 - f)} ${C}`}
+          strokeDashoffset={-C * f}
+          transform="rotate(-90 60 60)"
+        />
+        {/* 自分（メイン） */}
+        <circle
+          cx="60"
+          cy="60"
+          r={R}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="13"
+          strokeLinecap={f > 0 && f < 1 ? "round" : "butt"}
+          strokeDasharray={`${C * f} ${C}`}
+          transform="rotate(-90 60 60)"
+        />
+        <text
+          x="60"
+          y="57"
+          textAnchor="middle"
+          className="font-display"
+          fill="var(--ink)"
+          fontSize="22"
+          fontWeight="700"
+        >
+          {pct}%
+        </text>
+        <text
+          x="60"
+          y="74"
+          textAnchor="middle"
+          fill="var(--muted)"
+          fontSize="9"
+        >
+          自分の考え
+        </text>
+      </svg>
+
+      <div className="min-w-[150px] flex-1">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-[13px] text-ink">
+              <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+              自分の考え
+            </span>
+            <span className="font-display text-xs tracking-wide text-muted">
+              {userNodes} nodes
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-[13px] text-ink">
+              <span className="h-2.5 w-2.5 rounded-full bg-warm" />
+              AIの提案
+            </span>
+            <span className="font-display text-xs tracking-wide text-muted">
+              {aiNodes} nodes
+            </span>
+          </div>
+        </div>
+        <Link
+          href="/badges"
+          className="mt-4 inline-block text-xs text-accent-soft underline-offset-4 hover:underline"
+        >
+          バッジを見る →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { user, profile, initializing, needsProfile, signOut } = useAuth();
   const [maps, setMaps] = useState<MindMap[]>([]);
@@ -78,6 +191,15 @@ export default function HomePage() {
   };
 
   const totalNodes = maps.reduce((sum, m) => sum + m.nodes.length, 0);
+  // 思考のバランス（UP-03）: 自分の言葉 vs AI提案（root は数えない）
+  const userNodes = maps.reduce(
+    (sum, m) => sum + m.nodes.filter((n) => n.data.role === "user").length,
+    0,
+  );
+  const aiNodes = maps.reduce(
+    (sum, m) => sum + m.nodes.filter((n) => n.data.role === "ai").length,
+    0,
+  );
 
   return (
     <main className="min-h-screen bg-page px-5 py-12 sm:py-20">
@@ -111,6 +233,12 @@ export default function HomePage() {
               <span className="hidden max-w-[120px] truncate text-xs text-muted sm:block">
                 {profile.displayName}
               </span>
+              <Link
+                href="/settings"
+                className="rounded-full border border-line bg-card px-3 py-1.5 text-[11px] text-muted transition-colors hover:text-ink"
+              >
+                設定
+              </Link>
               <button
                 onClick={() => void signOut()}
                 className="rounded-full border border-line bg-card px-3 py-1.5 text-[11px] text-muted transition-colors hover:text-ink"
@@ -199,6 +327,19 @@ export default function HomePage() {
             </Link>
             するとクラウドに保存されます。
           </p>
+        )}
+
+        {/* 思考のバランスリング（UP-03） */}
+        {userNodes + aiNodes > 0 && (
+          <div
+            className="anim-float-up mt-14"
+            style={{ animationDelay: "0.1s" }}
+          >
+            <div className="mb-4 px-1">
+              <span className="micro-label">思考のバランス</span>
+            </div>
+            <ThinkRing userNodes={userNodes} aiNodes={aiNodes} />
+          </div>
         )}
 
         {/* これまでのマップ */}

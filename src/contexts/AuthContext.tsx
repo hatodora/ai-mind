@@ -25,7 +25,8 @@ import {
 } from "@/lib/firebase";
 import { createFirestoreRepo, localRepo, setRepo } from "@/lib/repo";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
-import type { AssistLevel, UserProfile } from "@/types";
+import { DEFAULT_PERSONALITY } from "@/lib/ai-persona";
+import type { AIPersonality, AssistLevel, UserProfile } from "@/types";
 
 /** 表示名未入力時のランダム生成（例: 思索家_k3x9pz） */
 export function randomDisplayName(): string {
@@ -56,6 +57,10 @@ interface AuthState {
     age: number;
     photoURL?: string | null;
     assistLevel?: AssistLevel;
+    /** 誕生日（YYYY-MM-DD）。age はここから導出した値を渡す（UP-06） */
+    birthDate?: string;
+    /** AIパーソナリティ（UP-04） */
+    personality?: AIPersonality;
   }) => Promise<void>;
 }
 
@@ -142,18 +147,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       age: number;
       photoURL?: string | null;
       assistLevel?: AssistLevel;
+      birthDate?: string;
+      personality?: AIPersonality;
     }) => {
       const u = firebaseAuth().currentUser;
       if (!u) throw new Error("ログインしていません");
       const now = Date.now();
+      // Firestore は undefined を保存できないため、誕生日は判明している時だけ持つ
+      const birthDate = input.birthDate ?? profile?.birthDate;
       const next: UserProfile = {
         uid: u.uid,
         email: u.email ?? "",
         displayName: input.displayName?.trim() || randomDisplayName(),
         age: input.age,
+        ...(birthDate ? { birthDate } : {}),
         photoURL: input.photoURL ?? u.photoURL ?? null,
         assistLevel:
           input.assistLevel ?? profile?.assistLevel ?? DEFAULT_ASSIST_LEVEL,
+        personality:
+          input.personality ?? profile?.personality ?? DEFAULT_PERSONALITY,
         role: profile?.role ?? "user",
         createdAt: profile?.createdAt ?? now,
         updatedAt: now,

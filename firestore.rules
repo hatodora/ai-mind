@@ -36,17 +36,21 @@ service cloud.firestore {
       function validUser() {
         let d = request.resource.data;
         return d.keys().hasOnly(
-            ['uid', 'email', 'displayName', 'age', 'photoURL', 'assistLevel',
-             'role', 'createdAt', 'updatedAt'])
+            ['uid', 'email', 'displayName', 'age', 'birthDate', 'photoURL',
+             'assistLevel', 'personality', 'role', 'createdAt', 'updatedAt'])
           && d.uid == uid
           && d.email is string && d.email.size() <= 320
           && d.displayName is string
           && d.displayName.size() >= 1 && d.displayName.size() <= 30
           && d.age is int && d.age >= 5 && d.age <= 120
+          && (!('birthDate' in d)
+              || (d.birthDate is string && d.birthDate.size() == 10))
           && (d.photoURL == null
               || (d.photoURL is string && d.photoURL.size() <= 2048))
           && (!('assistLevel' in d)
               || d.assistLevel in ['level1', 'level2', 'level3', 'off'])
+          && (!('personality' in d)
+              || d.personality in ['advisor', 'boss', 'analyst'])
           && d.createdAt is number && d.updatedAt is number;
       }
       // 一般ユーザーは自分を admin に昇格できない
@@ -97,7 +101,8 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.keys().hasOnly(
             ['id', 'theme', 'nodes', 'edges', 'currentTurn', 'turnCount',
-             'aiGauge', 'assistLevel', 'createdAt', 'updatedAt', 'ownerId',
+             'aiGauge', 'assistLevel', 'aiRequestCount', 'completed',
+             'completedAt', 'createdAt', 'updatedAt', 'ownerId',
              'visibility', 'sharedWith'])
           && d.id == mapId
           && d.theme is string && d.theme.size() >= 1 && d.theme.size() <= 200
@@ -108,6 +113,10 @@ service cloud.firestore {
           && d.aiGauge is number
           && (!('assistLevel' in d)
               || d.assistLevel in ['level1', 'level2', 'level3', 'off'])
+          && (!('aiRequestCount' in d)
+              || (d.aiRequestCount is int && d.aiRequestCount >= 0))
+          && (!('completed' in d) || d.completed is bool)
+          && (!('completedAt' in d) || d.completedAt is number)
           && d.ownerId is string
           && d.visibility in ['private', 'shared', 'public']
           && d.sharedWith is map

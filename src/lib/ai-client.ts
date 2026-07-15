@@ -40,29 +40,44 @@ async function callRoute<T>(path: string, payload: unknown): Promise<T> {
   return json as T;
 }
 
-export async function aiSuggest(payload: {
-  theme: string;
-  selectedNodeLabel: string;
-  contextNodes: { id: string; label: string; role: string }[];
-}): Promise<{ suggestions: string[] }> {
+/**
+ * 年齢帯（UP-06）とパーソナリティ（UP-04）。
+ * サーバー側で許可リスト検証され、不正値・未指定は既定に落ちる。
+ */
+interface PersonaOptions {
+  ageBand?: string;
+  personality?: string;
+}
+
+export async function aiSuggest(
+  payload: {
+    theme: string;
+    selectedNodeLabel: string;
+    contextNodes: { id: string; label: string; role: string }[];
+  } & PersonaOptions,
+): Promise<{ suggestions: string[] }> {
   return shouldUseFunctions()
     ? callFunction("aiSuggest", payload)
     : callRoute("/api/ai/suggest", payload);
 }
 
-export async function aiExplain(payload: {
-  label: string;
-  theme: string;
-}): Promise<{ explanation: string }> {
+export async function aiExplain(
+  payload: {
+    label: string;
+    theme: string;
+  } & PersonaOptions,
+): Promise<{ explanation: string }> {
   return shouldUseFunctions()
     ? callFunction("aiExplain", payload)
     : callRoute("/api/ai/explain", payload);
 }
 
-export async function aiReview(payload: {
-  theme: string;
-  nodes: { label: string; role: string }[];
-}): Promise<{ review: string }> {
+export async function aiReview(
+  payload: {
+    theme: string;
+    nodes: { label: string; role: string }[];
+  } & PersonaOptions,
+): Promise<{ review: string }> {
   return shouldUseFunctions()
     ? callFunction("aiReview", payload)
     : callRoute("/api/ai/review", payload);

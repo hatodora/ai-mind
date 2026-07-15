@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth, randomDisplayName } from "@/contexts/AuthContext";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
+import { ageFromBirthDate } from "@/lib/ai-persona";
 import type { AssistLevel } from "@/types";
 
 /** AIアシスト既定レベルの選択肢（UP-02） */
@@ -26,7 +27,7 @@ export default function SetupPage() {
     useAuth();
 
   const [displayName, setDisplayName] = useState("");
-  const [age, setAge] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [assistLevel, setAssistLevel] =
     useState<AssistLevel>(DEFAULT_ASSIST_LEVEL);
   const [busy, setBusy] = useState(false);
@@ -44,15 +45,22 @@ export default function SetupPage() {
     }
   }, [initializing, user, needsVerification, profile, router]);
 
-  const ageNum = Number(age);
-  const ageValid = Number.isInteger(ageNum) && ageNum >= 5 && ageNum <= 120;
+  // 誕生日から満年齢を導出して保存する（UP-06）。5〜120歳のみ許可
+  const derivedAge = birthDate ? ageFromBirthDate(birthDate) : null;
+  const ageValid =
+    derivedAge !== null && derivedAge >= 5 && derivedAge <= 120;
 
   const handleSubmit = async () => {
     if (!ageValid || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await saveProfile({ displayName, age: ageNum, assistLevel });
+      await saveProfile({
+        displayName,
+        age: derivedAge,
+        birthDate,
+        assistLevel,
+      });
       router.replace("/");
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗しました");
@@ -109,21 +117,22 @@ export default function SetupPage() {
           />
 
           <label className="mb-1.5 block text-[13px] font-bold">
-            年齢 <span className="font-normal text-danger">（必須）</span>
+            誕生日 <span className="font-normal text-danger">（必須）</span>
           </label>
           <input
-            type="number"
-            inputMode="numeric"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            placeholder="例: 16"
-            min={5}
-            max={120}
-            className="w-full rounded-[12px] border border-line bg-card px-5 py-3.5 text-[15px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2"
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            className="w-full rounded-[12px] border border-line bg-card px-5 py-3.5 text-[15px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2 [color-scheme:dark]"
           />
-          {age !== "" && !ageValid && (
+          {birthDate !== "" && !ageValid && (
             <p className="mt-1.5 text-[11px] text-danger">
-              5〜120 の整数で入力してください
+              5〜120歳になる誕生日を入力してください
+            </p>
+          )}
+          {ageValid && (
+            <p className="mt-1.5 text-[11px] text-muted">
+              {derivedAge}歳 — 年齢に合わせてAIの言葉づかいを調整します
             </p>
           )}
 

@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
 import { getModel } from "@/lib/groq";
+import { asAgeBand, asPersonality, personaAgeBlock } from "@/lib/ai-persona";
 
 export const runtime = "nodejs";
 
 interface RequestBody {
   theme: string;
   nodes: { label: string; role: string }[];
+  ageBand?: string;
+  personality?: string;
 }
 
 export async function POST(req: Request) {
   try {
-    const { theme, nodes } = (await req.json()) as RequestBody;
+    const body = (await req.json()) as RequestBody;
+    const { theme, nodes } = body;
+    // 年齢帯・人格（UP-06 / UP-04）で語り口を切り替える
+    const ageBand = asAgeBand(body.ageBand);
+    const personality = asPersonality(body.personality);
 
     const nodeList = nodes
       .filter((n) => n.role !== "root")
@@ -18,6 +25,8 @@ export async function POST(req: Request) {
       .join("\n");
 
     const prompt = `あなたはユーザーの問題解決を支援するパートナーです。
+${personaAgeBlock(personality, ageBand)}
+
 以下はユーザーが「${theme}」について作ったマインドマップです。
 
 ${nodeList}
@@ -28,7 +37,7 @@ ${nodeList}
 2. もう少し深掘りすると面白そうなところ（1〜2点）
 3. 次のアクション（具体的に2〜3個、明日からできること）
 
-意識高い系の横文字や抽象論は禁止。中学生でもわかる具体的な言葉で、優しいトーンで答えてください。`;
+意識高い系の横文字や抽象論は禁止。人格と読み手のガイドに沿ったトーンで答えてください。`;
 
     const model = getModel();
     const result = await model.generateContent(prompt);

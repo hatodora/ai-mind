@@ -8,6 +8,18 @@ export type Turn = "user" | "ai";
  */
 export type AssistLevel = "level1" | "level2" | "level3" | "off";
 
+/**
+ * 年齢帯（UP-06）。誕生日から導出し、AIの語彙・説明の難易度を調整する。
+ * essential: 5-10 / education: 11-14 / teenager: 15-17 / worker: 18+
+ */
+export type AgeBand = "essential" | "education" | "teenager" | "worker";
+
+/**
+ * AIパーソナリティ（UP-04）。explain / review を中心に応答トーンを変える。
+ * advisor: 肯定＋指摘 / boss: 問いを突き返す / analyst: 論理・逆説・冷徹
+ */
+export type AIPersonality = "advisor" | "boss" | "analyst";
+
 export interface MindMapNodeData {
   label: string;
   role: NodeRole;
@@ -50,6 +62,12 @@ export interface MindMap {
    * 省略時は既定（level2）扱い。作成時にプロフィール既定から引き継ぐ。
    */
   assistLevel?: AssistLevel;
+  /** AIにアイデアを相談した回数（UP-01 バッジ用。explain/review は数えない） */
+  aiRequestCount?: number;
+  /** 完成フラグ（UP-01）。結論レビュー後の「マップを一時的に保存する」で立つ */
+  completed?: boolean;
+  /** 完成した日時（UP-01） */
+  completedAt?: number;
   createdAt: number;
   updatedAt: number;
   /** Firestore 移行後の所有者 UID。ローカル（匿名）マップでは未設定 */
@@ -66,12 +84,16 @@ export interface UserProfile {
   email: string;
   /** 未入力時はランダム生成した表示名が入る */
   displayName: string;
-  /** 必須項目。UP-06（年齢別AI応答調整）で利用 */
+  /** 必須項目。誕生日から導出して保存する（UP-06 年齢別AI応答調整で利用） */
   age: number;
+  /** 誕生日（YYYY-MM-DD）。年齢帯の導出元（UP-06）。旧プロフィールには無い */
+  birthDate?: string;
   /** 任意。アバターとして扱う */
   photoURL: string | null;
   /** AIアシストの既定レベル（UP-02）。新規マップ作成時の初期値になる。省略時は既定 */
   assistLevel?: AssistLevel;
+  /** AIパーソナリティ（UP-04）。省略時は advisor 扱い */
+  personality?: AIPersonality;
   role: "user" | "admin";
   createdAt: number;
   updatedAt: number;

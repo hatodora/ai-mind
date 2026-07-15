@@ -51,6 +51,10 @@ interface Actions {
   setTurn: (turn: Turn) => void;
   /** AIトークンゲージを消費する（UP-02）。足りなければ false */
   spendGauge: (amount: number) => boolean;
+  /** AIにアイデアを相談した回数を記録する（UP-01 バッジ用） */
+  noteAIRequest: () => void;
+  /** マップを完成にする（UP-01）。結論レビュー後の「一時的に保存」で呼ぶ */
+  completeMap: () => void;
   /** ノードをツリー状に自動整列する（UP-05） */
   arrange: () => void;
   persist: () => void;
@@ -295,6 +299,29 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
     set({ map: updated });
     saveAsync(updated);
     return ok;
+  },
+
+  noteAIRequest: () => {
+    const map = get().map;
+    if (!map) return;
+    const updated: MindMap = {
+      ...map,
+      aiRequestCount: (map.aiRequestCount ?? 0) + 1,
+    };
+    set({ map: updated });
+    saveAsync(updated);
+  },
+
+  completeMap: () => {
+    const map = get().map;
+    if (!map || map.completed) return;
+    const updated: MindMap = {
+      ...map,
+      completed: true,
+      completedAt: Date.now(),
+    };
+    set({ map: updated });
+    saveAsync(updated);
   },
 
   arrange: () => {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { aiExplain, aiReview, aiSuggest } from "@/lib/ai-client";
 import { useMindMapStore } from "@/store/mindmap-store";
+import { useAuth } from "@/contexts/AuthContext";
 import type { AssistLevel } from "@/types";
 import {
   AI_REQUEST_COST,
@@ -15,9 +16,17 @@ import {
   isUnlocked,
   nodesUntilNextTurn,
 } from "@/lib/gauge";
+import {
+  DEFAULT_PERSONALITY,
+  ageBandFromProfile,
+} from "@/lib/ai-persona";
+import { Celebration } from "./Celebration";
 
 /** 行き詰まり検知（NF-04）: この秒数無操作なら AI サポート導線を出す */
 const STALL_SECONDS = 45;
+
+/** マイルストーン演出（UP-01）: このノード数に到達したら祝う */
+const MILESTONES = [10, 25, 50, 100, 200];
 
 /** アシストレベルの選択肢（UP-02）。off = AI提案を使わない */
 const LEVEL_OPTIONS: { value: AssistLevel; label: string; hint: string }[] = [
@@ -154,8 +163,11 @@ export function ControlPanel() {
   const removeNode = useMindMapStore((s) => s.removeNode);
   const setTurn = useMindMapStore((s) => s.setTurn);
   const spendGauge = useMindMapStore((s) => s.spendGauge);
+  const noteAIRequest = useMindMapStore((s) => s.noteAIRequest);
+  const completeMap = useMindMapStore((s) => s.completeMap);
   const setAssistLevel = useMindMapStore((s) => s.setAssistLevel);
   const arrange = useMindMapStore((s) => s.arrange);
+  const { profile } = useAuth();
 
   const [input, setInput] = useState("");
   const [aiSuggestions, setAISuggestions] = useState<string[]>([]);
@@ -167,7 +179,16 @@ export function ControlPanel() {
   const [error, setError] = useState<string | null>(null);
   const [adoptedFlash, setAdoptedFlash] = useState(false);
   const [stalled, setStalled] = useState(false);
+  const [celebration, setCelebration] = useState<{
+    title: string;
+    subtitle?: string;
+  } | null>(null);
   const lastActivityRef = useRef<number | null>(null);
+  const prevNodeCountRef = useRef<number | null>(null);
+
+  // AIの語り口（UP-04 / UP-06）。未ログインは既定（大人・アドバイザー）
+  const ageBand = ageBandFromProfile(profile);
+  const personality = profile?.personality ?? DEFAULT_PERSONALITY;
 
   // イベントハンドラ専用。null = 「直前に操作があった」の印で、
   // 次のインターバル刻みで計測起点が再設定される
@@ -209,6 +230,26 @@ export function ControlPanel() {
     return () => clearInterval(timer);
   }, [isUserTurn, aiSuggestions.length]);
 
+  // マイルストーン演出（UP-01a）。マップが切り替わったら計測をリセット
+  const nodeCount = map?.nodes.length ?? 0;
+  const mapId = map?.id ?? null;
+  useEffect(() => {
+    prevNodeCountRef.current = null;
+  }, [mapId]);
+  // ノード数が「増えて」しきい値を跨いだ時だけ祝う（読み込み直後は祝わない）
+  useEffect(() => {
+    const prev = prevNodeCountRef.current;
+    prevNodeCountRef.current = nodeCount;
+    if (prev === null || nodeCount <= prev) return;
+    const hit = MILESTONES.find((t) => prev < t && nodeCount >= t);
+    if (hit) {
+      setCelebration({
+        title: `${hit}ノード到達`,
+        subtitle: "思考がどんどん広がっています",
+      });
+    }
+  }, [nodeCount]);
+
   if (!map) return null;
 
   const flashAdopted = () => {
@@ -238,8 +279,11 @@ export function ControlPanel() {
           label: n.data.label,
           role: n.data.role,
         })),
+        ageBand,
+        personality,
       });
       spendGauge(AI_REQUEST_COST);
+      noteAIRequest();
       setAISuggestions(json.suggestions || []);
       setTurn("ai");
     } catch (e) {
@@ -286,6 +330,8 @@ export function ControlPanel() {
       const json = await aiExplain({
         label: selected.data.label,
         theme: map.theme,
+        ageBand,
+        personality,
       });
       setExplanation(json.explanation);
     } catch (e) {
@@ -306,6 +352,8 @@ export function ControlPanel() {
           label: n.data.label,
           role: n.data.role,
         })),
+        ageBand,
+        personality,
       });
       setReview(json.review);
     } catch (e) {
@@ -318,8 +366,27 @@ export function ControlPanel() {
   // 行き詰まり時、AI提案が使えるならそちらへ、無理ならノード解説へ誘導
   const stallCanSuggest = canAskAI;
 
+  /** 完成フロー（UP-01b）: 結論レビューを読んだ後に一時保存 → 完成演出 */
+  const handleComplete = () => {
+    completeMap();
+    setCelebration({
+      title: "マップ完成",
+      subtitle: "おつかれさま。良い思索でした",
+    });
+    touch();
+  };
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
+      {/* 達成演出（UP-01）。操作は妨げない */}
+      {celebration && (
+        <Celebration
+          title={celebration.title}
+          subtitle={celebration.subtitle}
+          onDone={() => setCelebration(null)}
+        />
+      )}
+
       {/* テーマ ＋ ターンバッジ */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -328,17 +395,24 @@ export function ControlPanel() {
             {map.theme}
           </div>
         </div>
-        <span
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-card px-3.5 py-2 text-[11px] font-bold tracking-wide ${
-            isUserTurn ? "text-warm" : "text-accent-soft"
-          }`}
-        >
+        <span className="flex flex-col items-end gap-1.5">
           <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              isUserTurn ? "bg-warm" : "bg-accent"
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-card px-3.5 py-2 text-[11px] font-bold tracking-wide ${
+              isUserTurn ? "text-warm" : "text-accent-soft"
             }`}
-          />
-          {isUserTurn ? "あなたの番" : "AIの番"}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isUserTurn ? "bg-warm" : "bg-accent"
+              }`}
+            />
+            {isUserTurn ? "あなたの番" : "AIの番"}
+          </span>
+          {map.completed && (
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-tint-accent-strong px-3 py-1 text-[10px] font-bold tracking-wide text-accent-soft">
+              ✓ 完成
+            </span>
+          )}
         </span>
       </div>
 
@@ -572,6 +646,17 @@ export function ControlPanel() {
           <div className="anim-float-up card-soft whitespace-pre-wrap px-4 py-3.5 text-[13px] leading-[1.9] text-ink">
             {review}
           </div>
+        )}
+
+        {/* 完成フロー（UP-01b）: 結論を読んだら一時保存で完成にできる */}
+        {review && !map.completed && (
+          <button
+            onClick={handleComplete}
+            className="btn-lift btn-secondary w-full py-3.5 text-[13px] font-bold !text-accent-soft"
+            title="このマップを完成として保存します"
+          >
+            マップを一時的に保存する
+          </button>
         )}
 
         {error && (
