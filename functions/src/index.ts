@@ -12,7 +12,7 @@ import { onCall, HttpsError, type CallableRequest } from "firebase-functions/v2/
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Groq from "groq-sdk";
 
 initializeApp();
@@ -179,6 +179,129 @@ function personaAgeBlock(
   return `${PERSONA_GUIDES[personality]}\n${AGE_GUIDES[ageBand]}`;
 }
 
+/**
+ * レビュー応答から根拠ノード行（NF-03）を分離する。
+ * src/lib/ai-validate.ts の splitReviewResponse と同一ロジック（別パッケージのため複製）。
+ */
+function splitReviewResponse(text: string): {
+  review: string;
+  usedNodeLabels: string[];
+} {
+  const idx = text.lastIndexOf("USED_NODES");
+  if (idx === -1) return { review: text.trim(), usedNodeLabels: [] };
+  const tail = text.slice(idx);
+  const arrayMatch = tail.match(/\[[\s\S]*?\]/);
+  const review = text.slice(0, idx).replace(/[`\s]+$/, "").trim();
+  if (!arrayMatch) return { review, usedNodeLabels: [] };
+  try {
+    const parsed: unknown = JSON.parse(arrayMatch[0]);
+    if (!Array.isArray(parsed)) return { review, usedNodeLabels: [] };
+    const labels = Array.from(
+      new Set(
+        parsed
+          .filter(
+            (s): s is string => typeof s === "string" && s.trim().length > 0,
+          )
+          .map((s) => s.trim().slice(0, 300)),
+      ),
+    ).slice(0, 50);
+    return { review, usedNodeLabels: labels };
+  } catch {
+    return { review, usedNodeLabels: [] };
+  }
+}
+
+// ---------- 共同編集の招待（NF-01a） ----------
+// invites/{token} はクライアント直アクセス禁止（ルールで deny）。
+// token 自体が秘密なので、発行・受諾は必ずこの2つの Functions を通す。
+
+/** 招待リンクの有効期間（7日） */
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** 1マップに参加できる共同編集者の上限（所有者を除く） */
+const MAX_COLLABORATORS = 10;
+
+export const createMapInvite = onCall(
+  { region: REGION },
+  async (request) => {
+    const uid = requireVerifiedUser(request);
+    const mapId = request.data?.mapId;
+    if (typeof mapId !== "string" || mapId.length === 0 || mapId.length > 128) {
+      throw new HttpsError("invalid-argument", "mapId が不正です");
+    }
+    const mapSnap = await db.doc(`maps/${mapId}`).get();
+    if (!mapSnap.exists || mapSnap.data()!.ownerId !== uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "このマップの所有者ではありません",
+      );
+    }
+    const token = randomUUID();
+    await db.doc(`invites/${token}`).set({
+      mapId,
+      ownerUid: uid,
+      role: "editor",
+      createdAt: Date.now(),
+      expiresAt: Date.now() + INVITE_TTL_MS,
+    });
+    return { token };
+  },
+);
+
+export const acceptMapInvite = onCall(
+  { region: REGION },
+  async (request) => {
+    const uid = requireVerifiedUser(request);
+    const token = request.data?.token;
+    if (typeof token !== "string" || token.length === 0 || token.length > 64) {
+      throw new HttpsError("invalid-argument", "token が不正です");
+    }
+    const inviteSnap = await db.doc(`invites/${token}`).get();
+    if (!inviteSnap.exists || Date.now() > (inviteSnap.data()!.expiresAt as number)) {
+      throw new HttpsError("not-found", "招待リンクが無効か、期限切れです");
+    }
+    const mapId = inviteSnap.data()!.mapId as string;
+
+    // 参加者の表示名を非正規化して保存する（他人のプロフィールは
+    // ルール上読めないため、共有モーダルの表示用にここで記録する）
+    const profileSnap = await db.doc(`users/${uid}`).get();
+    const displayName = profileSnap.exists
+      ? String(profileSnap.data()!.displayName ?? "").slice(0, 30)
+      : "";
+
+    const mapRef = db.doc(`maps/${mapId}`);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(mapRef);
+      if (!snap.exists) {
+        throw new HttpsError("not-found", "マップが見つかりません");
+      }
+      const data = snap.data()!;
+      if (data.ownerId === uid) return; // 所有者本人は参加処理不要
+      const sharedWith = { ...(data.sharedWith ?? {}) } as Record<string, string>;
+      if (
+        !(uid in sharedWith) &&
+        Object.keys(sharedWith).length >= MAX_COLLABORATORS
+      ) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "共同編集の人数が上限に達しています",
+        );
+      }
+      sharedWith[uid] = "editor";
+      const collaboratorNames = {
+        ...(data.collaboratorNames ?? {}),
+        ...(displayName ? { [uid]: displayName } : {}),
+      } as Record<string, string>;
+      tx.update(mapRef, {
+        sharedWith,
+        collaboratorNames,
+        // public は下げない。private のときだけ shared へ引き上げる
+        visibility: data.visibility === "private" ? "shared" : data.visibility,
+      });
+    });
+    return { mapId };
+  },
+);
+
 // ---------- aiSuggest ----------
 
 const SUGGEST_SYSTEM = `あなたはユーザーの思考をサポートするマインドマップの相棒です。
@@ -343,13 +466,19 @@ ${nodeList}
 2. もう少し深掘りすると面白そうなところ（1〜2点）
 3. 次のアクション（具体的に2〜3個、明日からできること）
 
-意識高い系の横文字や抽象論は禁止。人格と読み手のガイドに沿ったトーンで答えてください。`;
+意識高い系の横文字や抽象論は禁止。人格と読み手のガイドに沿ったトーンで答えてください。
+
+最後に、回答の中で実際に参照・言及したノードのラベルを、本文とは別の最終行に
+USED_NODES: ["ラベルA", "ラベルB"]
+という形式で出力してください（上のリストにあるラベルをそのまま使うこと。説明やコードブロックは不要）。`;
 
     const { text } = await withCache(
       "review",
       { theme, nodeList, ageBand, personality },
       () => generate(prompt),
     );
-    return { review: text };
+    // 根拠ノード行（NF-03）はキャッシュには生のまま保存し、返す直前に分離する
+    const { review, usedNodeLabels } = splitReviewResponse(text);
+    return { review, usedNodeLabels };
   },
 );

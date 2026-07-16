@@ -61,6 +61,8 @@ interface AuthState {
     birthDate?: string;
     /** AIパーソナリティ（UP-04） */
     personality?: AIPersonality;
+    /** コミュニティで名前を表示するか（NF-01b）。既定 false＝匿名 */
+    showNameInCommunity?: boolean;
   }) => Promise<void>;
 }
 
@@ -149,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       assistLevel?: AssistLevel;
       birthDate?: string;
       personality?: AIPersonality;
+      showNameInCommunity?: boolean;
     }) => {
       const u = firebaseAuth().currentUser;
       if (!u) throw new Error("ログインしていません");
@@ -166,6 +169,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           input.assistLevel ?? profile?.assistLevel ?? DEFAULT_ASSIST_LEVEL,
         personality:
           input.personality ?? profile?.personality ?? DEFAULT_PERSONALITY,
+        showNameInCommunity:
+          input.showNameInCommunity ?? profile?.showNameInCommunity ?? false,
         role: profile?.role ?? "user",
         createdAt: profile?.createdAt ?? now,
         updatedAt: now,

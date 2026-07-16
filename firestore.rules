@@ -37,7 +37,8 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.keys().hasOnly(
             ['uid', 'email', 'displayName', 'age', 'birthDate', 'photoURL',
-             'assistLevel', 'personality', 'role', 'createdAt', 'updatedAt'])
+             'assistLevel', 'personality', 'showNameInCommunity', 'role',
+             'createdAt', 'updatedAt'])
           && d.uid == uid
           && d.email is string && d.email.size() <= 320
           && d.displayName is string
@@ -51,6 +52,7 @@ service cloud.firestore {
               || d.assistLevel in ['level1', 'level2', 'level3', 'off'])
           && (!('personality' in d)
               || d.personality in ['advisor', 'boss', 'analyst'])
+          && (!('showNameInCommunity' in d) || d.showNameInCommunity is bool)
           && d.createdAt is number && d.updatedAt is number;
       }
       // 一般ユーザーは自分を admin に昇格できない
@@ -71,6 +73,26 @@ service cloud.firestore {
       match /private/{docId} {
         allow read, write: if false;
       }
+
+      // ---------- ブックマーク（NF-01b）: 本人専用・全年齢 ----------
+      match /bookmarks/{postId} {
+        function validBookmark() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(
+              ['postId', 'theme', 'rootLabel', 'nodeCount', 'authorName',
+               'postCreatedAt', 'createdAt'])
+            && d.postId == postId
+            && d.theme is string && d.theme.size() <= 200
+            && d.rootLabel is string && d.rootLabel.size() <= 300
+            && d.nodeCount is int && d.nodeCount >= 0
+            && (d.authorName == null
+                || (d.authorName is string && d.authorName.size() <= 30))
+            && d.postCreatedAt is number
+            && d.createdAt is number;
+        }
+        allow read, delete: if isSelf() || isAdmin();
+        allow create, update: if isSelf() && validBookmark();
+      }
     }
 
     // ---------- maps/{mapId}: マインドマップ ----------
@@ -87,14 +109,14 @@ service cloud.firestore {
           || isOwner()
           || resource.data.visibility == 'public'
           || (isVerified()
-              && resource.data.visibility == 'shared'
+              && resource.data.visibility != 'private'
               && request.auth.uid in resource.data.sharedWith);
       }
       function canEdit() {
         return isAdmin()
           || isOwner()
           || (isVerified()
-              && resource.data.visibility == 'shared'
+              && resource.data.visibility != 'private'
               && shareRole() == 'editor');
       }
       function validMap() {
@@ -103,7 +125,7 @@ service cloud.firestore {
             ['id', 'theme', 'nodes', 'edges', 'currentTurn', 'turnCount',
              'aiGauge', 'assistLevel', 'aiRequestCount', 'completed',
              'completedAt', 'createdAt', 'updatedAt', 'ownerId',
-             'visibility', 'sharedWith'])
+             'visibility', 'sharedWith', 'collaboratorNames'])
           && d.id == mapId
           && d.theme is string && d.theme.size() >= 1 && d.theme.size() <= 200
           && d.nodes is list && d.nodes.size() <= 500
@@ -120,14 +142,14 @@ service cloud.firestore {
           && d.ownerId is string
           && d.visibility in ['private', 'shared', 'public']
           && d.sharedWith is map
+          && (!('collaboratorNames' in d) || d.collaboratorNames is map)
           && d.createdAt is number && d.updatedAt is number;
       }
       // 共有相手（editor）は内容を編集できるが、
-      // 所有者・公開範囲・共有設定は所有者にしか変更させない
+      // 所有者・公開範囲・共有設定・参加者名は所有者にしか変更させない
       function aclUnchanged() {
-        return request.resource.data.ownerId == resource.data.ownerId
-          && request.resource.data.visibility == resource.data.visibility
-          && request.resource.data.sharedWith == resource.data.sharedWith;
+        return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['ownerId', 'visibility', 'sharedWith', 'collaboratorNames']);
       }
 
       allow read: if canRead();
@@ -140,6 +162,81 @@ service cloud.firestore {
             && validMap()
             && (isOwner() || aclUnchanged()));
       allow delete: if isAdmin() || isOwner();
+    }
+
+    // ---------- posts: コミュニティ投稿（NF-01b） ----------
+    // 閲覧は全年齢（ログイン＋メール確認必須）。投稿・コメントは15歳以上。
+    // 投稿者名はプロフィールの表示名と一致するか匿名（null）のみ＝なりすまし不可。
+    match /posts/{postId} {
+      function myProfile() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      }
+      // 15歳以上のみ投稿・コメントできる（クライアントUIに加えて二重に強制）
+      function canPublish() {
+        return isVerified() && myProfile().age >= 15;
+      }
+      function validAuthorName(name) {
+        return name == null
+          || (name is string && name.size() <= 30
+              && name == myProfile().displayName);
+      }
+      function validPost() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(
+            ['id', 'authorUid', 'authorName', 'theme', 'rootLabel',
+             'nodes', 'edges', 'commentCount', 'createdAt'])
+          && d.id == postId
+          && d.authorUid == request.auth.uid
+          && validAuthorName(d.authorName)
+          && d.theme is string && d.theme.size() >= 1 && d.theme.size() <= 200
+          && d.rootLabel is string
+          && d.rootLabel.size() >= 1 && d.rootLabel.size() <= 300
+          && d.nodes is list && d.nodes.size() >= 1 && d.nodes.size() <= 200
+          && d.edges is list && d.edges.size() <= 400
+          && d.commentCount == 0
+          && d.createdAt is number;
+      }
+      // 投稿本体の更新は commentCount の ±1 のみ（コメント作成/削除の batch 用）。
+      // Cloud Functions を使わずにカウントを安全に保つ
+      function onlyCommentCountDelta() {
+        let d = request.resource.data;
+        return d.diff(resource.data).affectedKeys().hasOnly(['commentCount'])
+          && (d.commentCount == resource.data.commentCount + 1
+              || d.commentCount == resource.data.commentCount - 1)
+          && d.commentCount >= 0;
+      }
+
+      allow read: if isVerified() || isAdmin();
+      allow create: if (canPublish() && validPost()) || isAdmin();
+      allow update: if (canPublish() && onlyCommentCountDelta()) || isAdmin();
+      allow delete: if isAdmin()
+        || (isVerified() && resource.data.authorUid == request.auth.uid);
+
+      // ---------- コメント。既定は匿名（authorName = null） ----------
+      match /comments/{commentId} {
+        function validComment() {
+          let d = request.resource.data;
+          return d.keys().hasOnly(
+              ['id', 'authorUid', 'authorName', 'text', 'createdAt'])
+            && d.id == commentId
+            && d.authorUid == request.auth.uid
+            && validAuthorName(d.authorName)
+            && d.text is string && d.text.size() >= 1 && d.text.size() <= 500
+            && d.createdAt is number;
+        }
+        allow read: if isVerified() || isAdmin();
+        allow create: if (canPublish() && validComment()) || isAdmin();
+        // 編集は不可。削除は本人のみ
+        allow update: if isAdmin();
+        allow delete: if isAdmin()
+          || (isVerified() && resource.data.authorUid == request.auth.uid);
+      }
+    }
+
+    // ---------- invites: 共同編集の招待（NF-01a・Cloud Functions 専用） ----------
+    // token が秘密そのものなので、クライアントからの読み書きは一切許可しない
+    match /invites/{token} {
+      allow read, write: if false;
     }
 
     // ---------- aiCache: AI応答キャッシュ（Cloud Functions 専用） ----------

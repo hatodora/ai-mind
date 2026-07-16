@@ -37,3 +37,37 @@ export function asSuggestions(v: unknown): string[] {
     .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
     .slice(0, MAX_SUGGESTIONS);
 }
+
+/**
+ * レビュー応答から根拠ノード行（NF-03）を分離する。
+ * 末尾の `USED_NODES: ["ラベル", ...]` をパースして本文から取り除く。
+ * 行が無い・壊れている場合はラベル無しで本文をそのまま返す（機能劣化に留める）。
+ * Cloud Functions 側にも同じロジックの複製がある（別パッケージのため）。
+ */
+export function splitReviewResponse(text: string): {
+  review: string;
+  usedNodeLabels: string[];
+} {
+  const idx = text.lastIndexOf("USED_NODES");
+  if (idx === -1) return { review: text.trim(), usedNodeLabels: [] };
+  const tail = text.slice(idx);
+  const arrayMatch = tail.match(/\[[\s\S]*?\]/);
+  const review = text.slice(0, idx).replace(/[`\s]+$/, "").trim();
+  if (!arrayMatch) return { review, usedNodeLabels: [] };
+  try {
+    const parsed: unknown = JSON.parse(arrayMatch[0]);
+    if (!Array.isArray(parsed)) return { review, usedNodeLabels: [] };
+    const labels = Array.from(
+      new Set(
+        parsed
+          .filter(
+            (s): s is string => typeof s === "string" && s.trim().length > 0,
+          )
+          .map((s) => s.trim().slice(0, MAX_LABEL_LEN)),
+      ),
+    ).slice(0, 50);
+    return { review, usedNodeLabels: labels };
+  } catch {
+    return { review, usedNodeLabels: [] };
+  }
+}

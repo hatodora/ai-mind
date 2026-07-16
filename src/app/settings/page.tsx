@@ -77,6 +77,7 @@ function SettingsForm({
     birthDate?: string;
     personality?: AIPersonality;
     assistLevel?: AssistLevel;
+    showNameInCommunity?: boolean;
   }) => Promise<void>;
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName);
@@ -86,6 +87,9 @@ function SettingsForm({
   );
   const [assistLevel, setAssistLevel] = useState<AssistLevel>(
     profile.assistLevel ?? DEFAULT_ASSIST_LEVEL,
+  );
+  const [showName, setShowName] = useState(
+    profile.showNameInCommunity ?? false,
   );
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -108,6 +112,7 @@ function SettingsForm({
         ...(birthDate ? { birthDate } : {}),
         personality,
         assistLevel,
+        showNameInCommunity: showName,
       });
       setSaved(true);
     } catch (e) {
@@ -230,6 +235,38 @@ function SettingsForm({
               );
             })}
           </div>
+
+          {/* コミュニティの名前表示（NF-01b）。既定はオフ＝匿名 */}
+          <label className="mb-1.5 mt-6 block text-[13px] font-bold">
+            コミュニティ
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowName((v) => !v)}
+            role="switch"
+            aria-checked={showName}
+            className="flex w-full items-center justify-between gap-4 rounded-[12px] border border-line bg-card px-4 py-3.5 text-left transition-colors hover:border-accent/50"
+          >
+            <span className="min-w-0">
+              <span className="block text-[14px] font-bold text-ink">
+                投稿・コメントに名前を表示
+              </span>
+              <span className="mt-0.5 block text-[11px] leading-relaxed text-muted">
+                オフのときは「匿名の思索家」として表示されます
+              </span>
+            </span>
+            <span
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                showName ? "bg-accent" : "bg-card-raised"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-page transition-all ${
+                  showName ? "left-[22px]" : "left-0.5"
+                }`}
+              />
+            </span>
+          </button>
 
           <button
             onClick={handleSave}

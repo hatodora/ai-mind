@@ -20,7 +20,9 @@ import {
   DEFAULT_PERSONALITY,
   ageBandFromProfile,
 } from "@/lib/ai-persona";
+import { canPostToCommunity } from "@/lib/community";
 import { Celebration } from "./Celebration";
+import { PublishModal } from "./PublishModal";
 
 /** 行き詰まり検知（NF-04）: この秒数無操作なら AI サポート導線を出す */
 const STALL_SECONDS = 45;
@@ -167,6 +169,8 @@ export function ControlPanel() {
   const completeMap = useMindMapStore((s) => s.completeMap);
   const setAssistLevel = useMindMapStore((s) => s.setAssistLevel);
   const arrange = useMindMapStore((s) => s.arrange);
+  const highlightedNodeIds = useMindMapStore((s) => s.highlightedNodeIds);
+  const setHighlightedNodes = useMindMapStore((s) => s.setHighlightedNodes);
   const { profile } = useAuth();
 
   const [input, setInput] = useState("");
@@ -183,6 +187,7 @@ export function ControlPanel() {
     title: string;
     subtitle?: string;
   } | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
   const lastActivityRef = useRef<number | null>(null);
   const prevNodeCountRef = useRef<number | null>(null);
 
@@ -363,7 +368,9 @@ export function ControlPanel() {
     setLoading("review");
     setError(null);
     setReview(null);
+    setHighlightedNodes([]);
     touch();
+    const requestMapId = map.id;
     try {
       const json = await aiReview({
         theme: map.theme,
@@ -374,7 +381,20 @@ export function ControlPanel() {
         ageBand,
         personality,
       });
+      // 応答待ちの間に別マップへ移動していたら反映しない
+      const current = useMindMapStore.getState().map;
+      if (current?.id !== requestMapId) return;
       setReview(json.review);
+      // レビューが根拠にしたノードをハイライト（NF-03）。
+      // ラベル一致でノードidへ引き当てる（同名ノードはすべて光らせる）
+      const labels = new Set(json.usedNodeLabels ?? []);
+      if (labels.size > 0) {
+        setHighlightedNodes(
+          current.nodes
+            .filter((n) => labels.has(n.data.label))
+            .map((n) => n.id),
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -635,16 +655,40 @@ export function ControlPanel() {
           </div>
         )}
 
-        {selected && selected.data.role !== "root" && (
-          <button
-            onClick={() => {
-              removeNode(selected.id);
-              touch();
-            }}
-            className="self-start rounded-full px-3 py-1.5 text-xs tracking-wider text-muted transition-colors hover:bg-tint-danger hover:text-danger"
-          >
-            このノードを削除
-          </button>
+        <div className="flex items-center justify-between gap-2">
+          {selected && selected.data.role !== "root" ? (
+            <button
+              onClick={() => {
+                removeNode(selected.id);
+                touch();
+              }}
+              className="rounded-full px-3 py-1.5 text-xs tracking-wider text-muted transition-colors hover:bg-tint-danger hover:text-danger"
+            >
+              このノードを削除
+            </button>
+          ) : (
+            <span />
+          )}
+          {/* コミュニティ公開（NF-01b）: 15歳以上・ログイン済みのみ */}
+          {selected && canPostToCommunity(profile) && map.ownerId && (
+            <button
+              onClick={() => {
+                setPublishOpen(true);
+                touch();
+              }}
+              className="rounded-full px-3 py-1.5 text-xs tracking-wider text-accent-soft transition-colors hover:bg-tint-accent-strong"
+              title="選択ノードとその子孫をコミュニティに公開します"
+            >
+              このノードを公開
+            </button>
+          )}
+        </div>
+
+        {publishOpen && selected && (
+          <PublishModal
+            rootNodeId={selected.id}
+            onClose={() => setPublishOpen(false)}
+          />
         )}
 
         <button
@@ -664,6 +708,22 @@ export function ControlPanel() {
         {review && (
           <div className="anim-float-up card-soft whitespace-pre-wrap px-4 py-3.5 text-[13px] leading-[1.9] text-ink">
             {review}
+          </div>
+        )}
+
+        {/* レビュー根拠のハイライト（NF-03）: AI要約の非ブラックボックス化 */}
+        {highlightedNodeIds.length > 0 && (
+          <div className="flex items-center justify-between gap-2 rounded-[12px] bg-tint-warm px-4 py-2.5">
+            <span className="text-[11px] leading-relaxed text-warm">
+              レビューの根拠になった {highlightedNodeIds.length} 個のノードを
+              マップ上でハイライト中
+            </span>
+            <button
+              onClick={() => setHighlightedNodes([])}
+              className="shrink-0 rounded-full border border-line bg-card px-3 py-1 text-[10px] font-bold text-muted transition-colors hover:text-ink"
+            >
+              解除
+            </button>
           </div>
         )}
 

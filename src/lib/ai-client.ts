@@ -87,7 +87,7 @@ export async function aiReview(
     theme: string;
     nodes: { label: string; role: string }[];
   } & PersonaOptions,
-): Promise<{ review: string }> {
+): Promise<{ review: string; usedNodeLabels?: string[] }> {
   return shouldUseFunctions()
     ? callFunction("aiReview", payload)
     : callRoute("/api/ai/review", payload);

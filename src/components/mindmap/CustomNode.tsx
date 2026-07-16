@@ -6,6 +6,8 @@ import type { NodeRole } from "@/types";
 interface Data {
   label: string;
   role: NodeRole;
+  /** AIレビューの根拠ノード（NF-03）。true なら暖色リングで示す */
+  highlighted?: boolean;
 }
 
 /**
@@ -25,7 +27,11 @@ export function CustomNode({ data, selected }: NodeProps<Data>) {
     <div
       className={`anim-float-up min-w-[80px] max-w-[200px] rounded-[12px] px-4.5 py-3 text-center text-[13.5px] leading-[1.5] ${
         styleByRole[data.role]
-      } ${selected ? "anim-ring-pulse" : ""}`}
+      } ${selected ? "anim-ring-pulse" : ""} ${
+        data.highlighted
+          ? "outline outline-2 outline-offset-2 outline-warm"
+          : ""
+      }`}
     >
       <Handle
         type="target"

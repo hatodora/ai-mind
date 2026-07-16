@@ -11,6 +11,7 @@ import type {
 import { newId } from "@/lib/storage";
 import { getRepo } from "@/lib/repo";
 import { autoPosition, tidyLayout } from "@/lib/layout";
+import { emptyDirty, mergeMaps, pruneDirty } from "@/lib/merge";
 import {
   DEFAULT_ASSIST_LEVEL,
   INITIAL_GRANT,
@@ -27,6 +28,8 @@ interface State {
   loading: boolean;
   /** 整列のたびに増える。キャンバス側が fitView するための合図 */
   layoutVersion: number;
+  /** AIレビューが根拠にしたノード（NF-03）。キャンバスでハイライトする */
+  highlightedNodeIds: string[];
 }
 
 interface Actions {
@@ -57,6 +60,12 @@ interface Actions {
   completeMap: () => void;
   /** ノードをツリー状に自動整列する（UP-05） */
   arrange: () => void;
+  /** レビュー根拠ノードのハイライトを設定/解除する（NF-03） */
+  setHighlightedNodes: (ids: string[]) => void;
+  /** 共同編集者を外す（NF-01a）。所有者のみ（ルールでも強制） */
+  removeCollaborator: (uid: string) => void;
+  /** リモート（共同編集相手）の変更を取り込む（NF-01a） */
+  applyRemote: (remote: MindMap) => void;
   persist: () => void;
 }
 
@@ -65,6 +74,29 @@ function saveAsync(map: MindMap) {
   void getRepo()
     .save(map)
     .catch((e) => console.error("マップの保存に失敗しました", e));
+}
+
+// ---- リアルタイム共同編集（NF-01a）のローカル編集履歴 ----
+// リモートのスナップショットとマージする際、直近にローカルで触った要素を
+// 上書きから保護するために使う。UI状態ではないためストアの外に置く。
+let dirty = emptyDirty();
+let healTimer: ReturnType<typeof setTimeout> | null = null;
+
+function markNode(id: string) {
+  dirty.nodes.set(id, Date.now());
+}
+function markEdge(id: string) {
+  dirty.edges.set(id, Date.now());
+}
+function markMeta() {
+  dirty.metaTouchedAt = Date.now();
+}
+function resetDirty() {
+  dirty = emptyDirty();
+  if (healTimer) {
+    clearTimeout(healTimer);
+    healTimer = null;
+  }
 }
 
 /**
@@ -90,6 +122,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
   selectedNodeId: null,
   loading: false,
   layoutVersion: 0,
+  highlightedNodeIds: [],
 
   load: async (id) => {
     set({ loading: true });
@@ -118,7 +151,13 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
         currentTurn: "user" as const,
       };
     }
-    set({ map, selectedNodeId: map?.nodes[0]?.id ?? null, loading: false });
+    resetDirty();
+    set({
+      map,
+      selectedNodeId: map?.nodes[0]?.id ?? null,
+      loading: false,
+      highlightedNodeIds: [],
+    });
   },
 
   create: (theme, level = DEFAULT_ASSIST_LEVEL) => {
@@ -142,8 +181,9 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
+    resetDirty();
     saveAsync(map);
-    set({ map, selectedNodeId: rootId });
+    set({ map, selectedNodeId: rootId, highlightedNodeIds: [] });
     return map;
   },
 
@@ -153,6 +193,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
     const map = get().map;
     if (!map) return;
     const updated: MindMap = { ...map, assistLevel: level };
+    markMeta();
     set({ map: updated });
     saveAsync(updated);
   },
@@ -181,6 +222,9 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       // 到達した瞬間に初期ゲージを付与する。
       aiGauge: role === "user" ? recoverOnUserNode(map) : map.aiGauge,
     };
+    markNode(id);
+    markEdge(edge.id);
+    markMeta();
     set({ map: updated });
     saveAsync(updated);
     return node;
@@ -216,6 +260,8 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       nodes: [...map.nodes, ...newNodes],
       edges: [...map.edges, ...newEdges],
     };
+    for (const n of newNodes) markNode(n.id);
+    for (const e of newEdges) markEdge(e.id);
     set({ map: updated });
     saveAsync(updated);
     return newNodes;
@@ -260,6 +306,15 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       ),
       aiGauge,
     };
+    // 共同編集マージ用: 削除を記録（相手のスナップショットで復活させない）
+    const now = Date.now();
+    for (const nid of toRemove) dirty.deletedNodes.set(nid, now);
+    for (const e of map.edges) {
+      if (toRemove.has(e.source) || toRemove.has(e.target)) {
+        dirty.deletedEdges.set(e.id, now);
+      }
+    }
+    markMeta();
     set({
       map: updated,
       selectedNodeId:
@@ -279,6 +334,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
         n.id === id ? { ...n, position: { x, y } } : n,
       ),
     };
+    markNode(id);
     set({ map: updated });
   },
 
@@ -291,6 +347,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
         n.id === id ? { ...n, data: { ...n.data, label } } : n,
       ),
     };
+    markNode(id);
     set({ map: updated });
     saveAsync(updated);
   },
@@ -303,6 +360,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       currentTurn: turn,
       turnCount: turn === "user" ? map.turnCount + 1 : map.turnCount,
     };
+    markMeta();
     set({ map: updated });
     saveAsync(updated);
   },
@@ -314,6 +372,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
     // 一括採用ペナルティはマイナス残高（＝借金）も許す。
     // 返済し終わるまでAIには相談できない。
     const updated: MindMap = { ...map, aiGauge: map.aiGauge - amount };
+    markMeta();
     set({ map: updated });
     saveAsync(updated);
     return ok;
@@ -326,6 +385,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       ...map,
       aiRequestCount: (map.aiRequestCount ?? 0) + 1,
     };
+    markMeta();
     set({ map: updated });
     saveAsync(updated);
   },
@@ -338,6 +398,30 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       completed: true,
       completedAt: Date.now(),
     };
+    markMeta();
+    set({ map: updated });
+    saveAsync(updated);
+  },
+
+  setHighlightedNodes: (ids) => set({ highlightedNodeIds: ids }),
+
+  removeCollaborator: (uid) => {
+    const map = get().map;
+    if (!map) return;
+    const sharedWith = { ...(map.sharedWith ?? {}) };
+    delete sharedWith[uid];
+    const collaboratorNames = { ...(map.collaboratorNames ?? {}) };
+    delete collaboratorNames[uid];
+    const updated: MindMap = {
+      ...map,
+      sharedWith,
+      collaboratorNames,
+      // 誰もいなくなったら非公開へ戻す
+      visibility:
+        Object.keys(sharedWith).length === 0 && map.visibility === "shared"
+          ? "private"
+          : map.visibility,
+    };
     set({ map: updated });
     saveAsync(updated);
   },
@@ -349,8 +433,35 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
       ...map,
       nodes: tidyLayout(map.nodes, map.edges),
     };
+    // 整列は全ノードの位置を変えるので、全部をローカル編集として保護する
+    for (const n of updated.nodes) markNode(n.id);
     set({ map: updated, layoutVersion: get().layoutVersion + 1 });
     saveAsync(updated);
+  },
+
+  applyRemote: (remote) => {
+    const map = get().map;
+    // 別マップのスナップショットや、読み込み前の通知は無視する
+    if (!map || map.id !== remote.id) return;
+    pruneDirty(dirty);
+    const { merged, divergedFromRemote } = mergeMaps(map, remote, dirty);
+    const selected = get().selectedNodeId;
+    const stillThere =
+      !!selected && merged.nodes.some((n) => n.id === selected);
+    set({
+      map: merged,
+      selectedNodeId: stillThere ? selected : merged.nodes[0]?.id ?? null,
+    });
+    // マージ結果がリモートと違う（＝ローカルの編集を守った）場合は、
+    // デバウンス保存でサーバー側との発散を癒す
+    if (divergedFromRemote) {
+      if (healTimer) clearTimeout(healTimer);
+      healTimer = setTimeout(() => {
+        healTimer = null;
+        const current = get().map;
+        if (current && current.id === remote.id) saveAsync(current);
+      }, 1500);
+    }
   },
 
   persist: () => {

@@ -76,6 +76,11 @@ export interface MindMap {
   visibility?: MapVisibility;
   /** 共有相手 UID → 権限。細かいアクセス制御はセキュリティルール側で行う */
   sharedWith?: Record<string, ShareRole>;
+  /**
+   * 共有相手 UID → 表示名（NF-01a）。参加時に Cloud Functions が記録する。
+   * 他人のプロフィールはルール上読めないため、表示用に非正規化しておく。
+   */
+  collaboratorNames?: Record<string, string>;
 }
 
 /** users/{uid} に保存するプロフィール（NF-06） */
@@ -94,6 +99,8 @@ export interface UserProfile {
   assistLevel?: AssistLevel;
   /** AIパーソナリティ（UP-04）。省略時は advisor 扱い */
   personality?: AIPersonality;
+  /** コミュニティで投稿・コメントに名前を表示するか（NF-01b）。既定 false＝匿名 */
+  showNameInCommunity?: boolean;
   role: "user" | "admin";
   createdAt: number;
   updatedAt: number;
@@ -102,4 +109,47 @@ export interface UserProfile {
 export interface AISuggestion {
   label: string;
   parentId: string;
+}
+
+// ---------- コミュニティ（NF-01b） ----------
+
+/**
+ * コミュニティ投稿。公開時点のスナップショット（元マップを後で編集しても変わらない）。
+ * nodes は「選択ノード＋その子孫」のみを含み、位置はミニマップ描画に使う。
+ */
+export interface CommunityPost {
+  id: string;
+  authorUid: string;
+  /** null = 匿名。プロフィール設定 showNameInCommunity に従う */
+  authorName: string | null;
+  theme: string;
+  /** 公開の起点に選んだノードのラベル */
+  rootLabel: string;
+  nodes: MindMapNode[];
+  edges: MindMapEdge[];
+  commentCount: number;
+  createdAt: number;
+}
+
+/** 投稿へのコメント。既定は匿名（authorName = null） */
+export interface CommunityComment {
+  id: string;
+  authorUid: string;
+  authorName: string | null;
+  text: string;
+  createdAt: number;
+}
+
+/**
+ * ブックマーク（users/{uid}/bookmarks/{postId}）。
+ * 一覧表示に必要な情報を非正規化して持ち、投稿の N 回読みを避ける（負荷減）。
+ */
+export interface Bookmark {
+  postId: string;
+  theme: string;
+  rootLabel: string;
+  nodeCount: number;
+  authorName: string | null;
+  postCreatedAt: number;
+  createdAt: number;
 }

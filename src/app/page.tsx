@@ -268,16 +268,26 @@ export default function HomePage() {
           </p>
 
           {/* CTA — プライマリ（ティファニーブルー） */}
-          <Link
-            href="/new"
-            className="btn-lift btn-primary inline-flex items-center gap-3 py-4 pl-7 pr-8 text-[15px]"
-          >
-            <span className="relative inline-block h-[15px] w-[15px]">
-              <span className="absolute left-0 top-[6.5px] h-[1.5px] w-[15px] rounded bg-on-accent" />
-              <span className="absolute left-[6.5px] top-0 h-[15px] w-[1.5px] rounded bg-on-accent" />
-            </span>
-            新しいマップを作る
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/new"
+              className="btn-lift btn-primary inline-flex items-center gap-3 py-4 pl-7 pr-8 text-[15px]"
+            >
+              <span className="relative inline-block h-[15px] w-[15px]">
+                <span className="absolute left-0 top-[6.5px] h-[1.5px] w-[15px] rounded bg-on-accent" />
+                <span className="absolute left-[6.5px] top-0 h-[15px] w-[1.5px] rounded bg-on-accent" />
+              </span>
+              新しいマップを作る
+            </Link>
+            {loggedIn && (
+              <Link
+                href="/community"
+                className="btn-lift btn-secondary inline-flex items-center gap-2 px-6 py-4 text-[14px] font-bold !text-accent-soft"
+              >
+                コミュニティ
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* 匿名マップの移行案内（INFRA-01c） */}
@@ -387,8 +397,16 @@ export default function HomePage() {
                       {m.theme.charAt(0)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-bold">
-                        {m.theme}
+                      <span className="flex items-center gap-2">
+                        <span className="min-w-0 truncate text-[15px] font-bold">
+                          {m.theme}
+                        </span>
+                        {/* 共有されたマップ（NF-01a）の目印 */}
+                        {user && m.ownerId && m.ownerId !== user.uid && (
+                          <span className="shrink-0 rounded-full bg-tint-accent-strong px-2 py-0.5 text-[9px] font-bold tracking-wider text-accent-soft">
+                            共同編集
+                          </span>
+                        )}
                       </span>
                       <span className="mt-0.5 block font-display text-xs tracking-wide text-muted">
                         {m.nodes.length}{" "}
@@ -396,15 +414,18 @@ export default function HomePage() {
                         {relativeTime(m.updatedAt)}
                       </span>
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        void handleDelete(m.id);
-                      }}
-                      className="rounded-full px-3 py-1.5 text-xs tracking-wider text-muted opacity-0 transition-all hover:bg-tint-danger hover:text-danger group-hover:opacity-100"
-                    >
-                      削除
-                    </button>
+                    {/* 削除できるのは自分のマップだけ（共有マップは所有者のみ） */}
+                    {(!m.ownerId || m.ownerId === user?.uid) && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void handleDelete(m.id);
+                        }}
+                        className="rounded-full px-3 py-1.5 text-xs tracking-wider text-muted opacity-0 transition-all hover:bg-tint-danger hover:text-danger group-hover:opacity-100"
+                      >
+                        削除
+                      </button>
+                    )}
                   </Link>
                 </li>
               ))}

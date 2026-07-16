@@ -28,6 +28,7 @@ export function MindMapCanvas() {
   const updatePos = useMindMapStore((s) => s.updateNodePosition);
   const persist = useMindMapStore((s) => s.persist);
   const layoutVersion = useMindMapStore((s) => s.layoutVersion);
+  const highlightedNodeIds = useMindMapStore((s) => s.highlightedNodeIds);
   const instanceRef = useRef<ReactFlowInstance | null>(null);
 
   // 「整える」実行後、整列結果が画面に収まるようにフィットする
@@ -45,10 +46,11 @@ export function MindMapCanvas() {
         id: n.id,
         type: "mindNode",
         position: n.position,
-        data: n.data,
+        // highlighted: レビュー根拠ノード（NF-03）
+        data: { ...n.data, highlighted: highlightedNodeIds.includes(n.id) },
         selected: n.id === selectedNodeId,
       })) ?? [],
-    [map?.nodes, selectedNodeId],
+    [map?.nodes, selectedNodeId, highlightedNodeIds],
   );
 
   const edges: Edge[] = useMemo(

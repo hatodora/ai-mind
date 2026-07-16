@@ -1,9 +1,11 @@
 import {
+  FieldPath,
   collection,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   setDoc,
@@ -26,6 +28,12 @@ export interface MapRepo {
   get(id: string): Promise<MindMap | null>;
   save(map: MindMap): Promise<void>;
   remove(id: string): Promise<void>;
+  /**
+   * マップの変更を購読する（NF-01a リアルタイム共同編集）。
+   * 自分の書き込みエコーは通知しない。ローカルリポジトリでは未対応（undefined）。
+   * 戻り値は購読解除関数。
+   */
+  watch?(id: string, onChange: (map: MindMap) => void): () => void;
 }
 
 /** 匿名マップの保持期間（日）。超過分は起動時に自動削除する */
@@ -64,33 +72,59 @@ export function createFirestoreRepo(uid: string): MapRepo {
 
   return {
     async list() {
-      const q = query(
+      // 自分のマップ ＋ 共有されたマップ（NF-01a）。
+      // sharedWith.{uid} の複合インデックスは uid ごとに作れないため、
+      // 共有分は orderBy を付けずクライアント側でまとめてソートする
+      const own = query(
         mapsCol(),
         where("ownerId", "==", uid),
         orderBy("updatedAt", "desc"),
       );
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => d.data() as MindMap);
+      const shared = query(
+        mapsCol(),
+        where("visibility", "==", "shared"),
+        where(new FieldPath("sharedWith", uid), "in", ["viewer", "editor"]),
+      );
+      const [ownSnap, sharedSnap] = await Promise.all([
+        getDocs(own),
+        getDocs(shared),
+      ]);
+      const byId = new Map<string, MindMap>();
+      for (const d of [...ownSnap.docs, ...sharedSnap.docs]) {
+        const m = d.data() as MindMap;
+        byId.set(m.id, m);
+      }
+      return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
     },
     async get(id) {
       const snap = await getDoc(doc(mapsCol(), id));
       if (!snap.exists()) return null;
       const map = snap.data() as MindMap;
-      // ルール上も弾かれるが、二重に所有者を確認する
-      return map.ownerId === uid ? map : null;
+      // ルール上も弾かれるが、二重にアクセス権（所有 or 共有）を確認する
+      const isMember = map.ownerId === uid || !!map.sharedWith?.[uid];
+      return isMember || map.visibility === "public" ? map : null;
     },
     async save(map) {
-      const withOwner: MindMap = {
+      const withMeta: MindMap = {
         ...map,
-        ownerId: uid,
+        // 共有マップを editor が保存しても所有者は変えない（ルールでも強制）
+        ownerId: map.ownerId ?? uid,
         visibility: map.visibility ?? "private",
         sharedWith: map.sharedWith ?? {},
         updatedAt: Date.now(),
       };
-      await setDoc(doc(mapsCol(), map.id), stripUndefined(withOwner));
+      await setDoc(doc(mapsCol(), map.id), stripUndefined(withMeta));
     },
     async remove(id) {
       await deleteDoc(doc(mapsCol(), id));
+    },
+    watch(id, onChange) {
+      return onSnapshot(doc(mapsCol(), id), (snap) => {
+        // 自分のローカル書き込みのエコーは無視する（相手の変更だけ反映）
+        if (snap.metadata.hasPendingWrites) return;
+        if (!snap.exists()) return;
+        onChange(snap.data() as MindMap);
+      });
     },
   };
 }

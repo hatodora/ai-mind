@@ -5,6 +5,7 @@ import {
   MAX_THEME_LEN,
   asBoundedString,
   asNodeList,
+  splitReviewResponse,
 } from "@/lib/ai-validate";
 
 export const runtime = "nodejs";
@@ -50,13 +51,19 @@ ${nodeList}
 2. もう少し深掘りすると面白そうなところ（1〜2点）
 3. 次のアクション（具体的に2〜3個、明日からできること）
 
-意識高い系の横文字や抽象論は禁止。人格と読み手のガイドに沿ったトーンで答えてください。`;
+意識高い系の横文字や抽象論は禁止。人格と読み手のガイドに沿ったトーンで答えてください。
+
+最後に、回答の中で実際に参照・言及したノードのラベルを、本文とは別の最終行に
+USED_NODES: ["ラベルA", "ラベルB"]
+という形式で出力してください（上のリストにあるラベルをそのまま使うこと。説明やコードブロックは不要）。`;
 
     const model = getModel();
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
 
-    return NextResponse.json({ review: text });
+    // 根拠ノード行（NF-03）を本文から分離して構造化して返す
+    const { review, usedNodeLabels } = splitReviewResponse(text);
+    return NextResponse.json({ review, usedNodeLabels });
   } catch (error) {
     console.error("[api/ai/review]", error);
     return NextResponse.json(
