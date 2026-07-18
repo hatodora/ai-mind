@@ -7,6 +7,7 @@ import {
   asNodeList,
   splitReviewResponse,
 } from "@/lib/ai-validate";
+import { allowRequest, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,13 @@ interface RequestBody {
 }
 
 export async function POST(req: Request) {
+  // 認証なし経路のためIP単位で連打を抑える（SEC-04）。検証より先に判定する
+  if (!allowRequest(clientIp(req))) {
+    return NextResponse.json(
+      { error: "リクエストが多すぎます。しばらく待ってからお試しください" },
+      { status: 429 },
+    );
+  }
   try {
     const body = (await req.json()) as RequestBody;
     // 認証なしで叩ける経路のため、型・長さ・件数を必ず検証する

@@ -40,7 +40,9 @@ service cloud.firestore {
              'assistLevel', 'personality', 'showNameInCommunity', 'role',
              'createdAt', 'updatedAt'])
           && d.uid == uid
+          // email は認証トークンと一致するもののみ（他人のアドレスを保存できない）
           && d.email is string && d.email.size() <= 320
+          && d.email == request.auth.token.email
           && d.displayName is string
           && d.displayName.size() >= 1 && d.displayName.size() <= 30
           && d.age is int && d.age >= 5 && d.age <= 120
@@ -232,10 +234,14 @@ service cloud.firestore {
         }
         allow read: if isVerified() || isAdmin();
         allow create: if (canPublish() && validComment()) || isAdmin();
-        // 編集は不可。削除は本人のみ
+        // 編集は不可。削除はコメント本人か、親投稿の作者（投稿の連鎖削除
+        // ＝孤児コメント防止のため。SEC-01 F-3）
         allow update: if isAdmin();
         allow delete: if isAdmin()
-          || (isVerified() && resource.data.authorUid == request.auth.uid);
+          || (isVerified()
+              && (resource.data.authorUid == request.auth.uid
+                  || get(/databases/$(database)/documents/posts/$(postId))
+                       .data.authorUid == request.auth.uid));
       }
     }
 

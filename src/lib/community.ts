@@ -139,8 +139,22 @@ export async function publishPost(
   return id;
 }
 
+/**
+ * 投稿を削除する。コメントも残さず消す（SEC-01 F-3: 孤児コメント防止）。
+ * ルール側は「親投稿の作者はコメントを削除できる」を許可済み。
+ * コメント → 本体の順に消すので、途中で失敗しても再実行すれば完了する。
+ */
 export async function deletePost(postId: string): Promise<void> {
-  await deleteDoc(doc(postsCol(), postId));
+  const postRef = doc(postsCol(), postId);
+  const comments = await getDocs(collection(postRef, "comments"));
+  // batch は500操作が上限のため分割する
+  const CHUNK = 400;
+  for (let i = 0; i < comments.docs.length; i += CHUNK) {
+    const batch = writeBatch(firebaseDb());
+    for (const d of comments.docs.slice(i, i + CHUNK)) batch.delete(d.ref);
+    await batch.commit();
+  }
+  await deleteDoc(postRef);
 }
 
 // ---------- フィード（ページネーション・onSnapshot なし） ----------
