@@ -185,8 +185,13 @@ export default function CommunityPage() {
                         <span>{relativeTime(p.createdAt)}</span>
                       </div>
                       <div className="text-[15px] font-bold leading-snug">
-                        {p.rootLabel}
+                        {p.title || p.rootLabel}
                       </div>
+                      {p.body && (
+                        <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted">
+                          {p.body}
+                        </p>
+                      )}
                       <div className="mt-1.5 flex items-center gap-3 font-display text-xs tracking-wide text-muted">
                         <span className="min-w-0 truncate">
                           テーマ「{p.theme}」
@@ -246,7 +251,7 @@ export default function CommunityPage() {
                         <span>{relativeTime(b.postCreatedAt)}</span>
                       </div>
                       <div className="text-[15px] font-bold leading-snug">
-                        {b.rootLabel}
+                        {b.title || b.rootLabel}
                       </div>
                       <div className="mt-1.5 flex items-center gap-3 font-display text-xs tracking-wide text-muted">
                         <span className="min-w-0 truncate">

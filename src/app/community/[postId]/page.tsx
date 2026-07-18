@@ -202,16 +202,22 @@ export default function PostPage({
             <span>{relativeTime(post.createdAt)}</span>
           </div>
           <h1 className="font-display text-[22px] font-bold leading-snug">
-            {post.rootLabel}
+            {post.title || post.rootLabel}
           </h1>
           <div className="mt-1 font-display text-xs tracking-wide text-muted">
-            テーマ「{post.theme}」 · {post.nodes.length} nodes
+            テーマ「{post.theme}」 · 起点ノード「{post.rootLabel}」 ·{" "}
+            {post.nodes.length} nodes
           </div>
+          {post.body && (
+            <p className="mt-4 whitespace-pre-wrap text-[14px] leading-[1.9] text-ink">
+              {post.body}
+            </p>
+          )}
         </div>
 
         {/* ミニマップ（読み取り専用スナップショット） */}
         <div className="anim-float-up mb-8 h-72 sm:h-80">
-          <PostMapView post={post} />
+          <PostMapView nodes={post.nodes} edges={post.edges} />
         </div>
 
         {/* コメント */}

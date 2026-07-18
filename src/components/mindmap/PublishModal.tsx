@@ -5,14 +5,18 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMindMapStore } from "@/store/mindmap-store";
 import {
+  MAX_POST_BODY_LEN,
+  MAX_POST_TITLE_LEN,
   collectSubtree,
   communityAuthorName,
   publishPost,
 } from "@/lib/community";
+import { PostMapView } from "@/components/community/PostMapView";
 
 /**
  * コミュニティへの公開モーダル（NF-01b）。
  * 「選択ノード＋その子孫」を公開時点のスナップショットとして投稿する。
+ * タイトル・本文は任意（空でも公開できる）。
  */
 export function PublishModal({
   rootNodeId,
@@ -23,6 +27,8 @@ export function PublishModal({
 }) {
   const map = useMindMapStore((s) => s.map);
   const { profile } = useAuth();
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [postId, setPostId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +43,7 @@ export function PublishModal({
     setPublishing(true);
     setError(null);
     try {
-      setPostId(await publishPost(map, rootNodeId, profile));
+      setPostId(await publishPost(map, rootNodeId, profile, { title, body }));
     } catch (e) {
       console.error("投稿に失敗しました", e);
       setError("投稿できませんでした。通信環境を確認してください");
@@ -52,7 +58,7 @@ export function PublishModal({
       onClick={onClose}
     >
       <div
-        className="anim-float-up w-full max-w-sm rounded-[16px] border border-line bg-card p-6"
+        className="anim-float-up flex max-h-[85vh] w-full max-w-md flex-col rounded-[16px] border border-line bg-card p-6"
         onClick={(e) => e.stopPropagation()}
       >
         {postId ? (
@@ -88,29 +94,66 @@ export function PublishModal({
               公開します（あとでマップを編集しても投稿は変わりません）。
             </p>
 
-            <div className="mb-4 rounded-[12px] border border-line bg-page px-4 py-3.5">
-              <div className="micro-label mb-1">公開する内容</div>
-              <div className="text-[14px] font-bold">{root.data.label}</div>
-              <div className="mt-1 font-display text-xs tracking-wide text-muted">
-                {subtree.nodes.length} nodes · テーマ「{map.theme}」
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              {/* プレビュー: 実際に投稿されるツリーをそのまま表示 */}
+              <div className="micro-label mb-2">プレビュー</div>
+              <div className="mb-4 h-48 shrink-0">
+                <PostMapView nodes={subtree.nodes} edges={subtree.edges} />
               </div>
+              <div className="mb-4 font-display text-xs tracking-wide text-muted">
+                起点「{root.data.label}」 · {subtree.nodes.length} nodes ·
+                テーマ「{map.theme}」
+              </div>
+
+              <label className="mb-1.5 block text-[13px] font-bold">
+                タイトル
+                <span className="ml-1.5 font-normal text-placeholder">
+                  （任意）
+                </span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={MAX_POST_TITLE_LEN}
+                placeholder={root.data.label}
+                className="mb-4 w-full rounded-[12px] border border-line bg-page px-4 py-3 text-[14px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2"
+              />
+
+              <label className="mb-1.5 block text-[13px] font-bold">
+                本文
+                <span className="ml-1.5 font-normal text-placeholder">
+                  （任意）
+                </span>
+              </label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                maxLength={MAX_POST_BODY_LEN}
+                placeholder="この思索について、伝えたいことがあれば…"
+                rows={4}
+                className="mb-1.5 w-full resize-none rounded-[12px] border border-line bg-page px-4 py-3 text-[14px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2"
+              />
+              <p className="mb-4 text-right text-[10px] text-placeholder">
+                {body.length} / {MAX_POST_BODY_LEN}
+              </p>
+
+              <p className="mb-1 text-[11px] leading-relaxed text-muted">
+                投稿者名:{" "}
+                <span className="font-bold text-ink">
+                  {authorName ?? "匿名"}
+                </span>
+                （設定画面の「コミュニティで名前を表示」で変更できます）
+              </p>
             </div>
 
-            <p className="mb-5 text-[11px] leading-relaxed text-muted">
-              投稿者名:{" "}
-              <span className="font-bold text-ink">
-                {authorName ?? "匿名"}
-              </span>
-              （設定画面の「コミュニティで名前を表示」で変更できます）
-            </p>
-
             {error && (
-              <div className="mb-4 rounded-[10px] bg-tint-danger px-3.5 py-2.5 text-xs text-danger">
+              <div className="mb-4 mt-3 rounded-[10px] bg-tint-danger px-3.5 py-2.5 text-xs text-danger">
                 {error}
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="mt-4 flex gap-2">
               <button
                 onClick={() => void handlePublish()}
                 disabled={publishing}

@@ -43,6 +43,10 @@ export const MIN_COMMUNITY_AGE = 15;
 export const FEED_PAGE_SIZE = 20;
 /** 投稿に含められる最大ノード数（ルールと同値） */
 export const MAX_POST_NODES = 200;
+/** 投稿タイトルの最大文字数（ルールと同値） */
+export const MAX_POST_TITLE_LEN = 100;
+/** 投稿本文の最大文字数（ルールと同値） */
+export const MAX_POST_BODY_LEN = 1000;
 /** コメントの最大文字数（ルールと同値） */
 export const MAX_COMMENT_LEN = 500;
 /** コメント欄の購読上限 */
@@ -104,22 +108,28 @@ export function collectSubtree(
   return { nodes, edges };
 }
 
-/** 投稿を公開する。戻り値は postId */
+/** 投稿を公開する。タイトル・本文は任意（未入力なら省略）。戻り値は postId */
 export async function publishPost(
   map: MindMap,
   rootNodeId: string,
   profile: UserProfile,
+  input?: { title?: string; body?: string },
 ): Promise<string> {
   const subtree = collectSubtree(map, rootNodeId);
   if (!subtree) throw new Error("公開するノードが見つかりません");
   const root = map.nodes.find((n) => n.id === rootNodeId)!;
   const id = newId();
+  const title = input?.title?.trim().slice(0, MAX_POST_TITLE_LEN);
+  const body = input?.body?.trim().slice(0, MAX_POST_BODY_LEN);
   const post: CommunityPost = {
     id,
     authorUid: profile.uid,
     authorName: communityAuthorName(profile),
     theme: map.theme,
     rootLabel: root.data.label,
+    // Firestore は undefined を保存できないため、未入力なら省略する
+    ...(title ? { title } : {}),
+    ...(body ? { body } : {}),
     nodes: subtree.nodes,
     edges: subtree.edges,
     commentCount: 0,
@@ -233,6 +243,7 @@ export async function addBookmark(
     postId: post.id,
     theme: post.theme,
     rootLabel: post.rootLabel,
+    ...(post.title ? { title: post.title } : {}),
     nodeCount: post.nodes.length,
     authorName: post.authorName,
     postCreatedAt: post.createdAt,

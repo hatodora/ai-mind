@@ -79,11 +79,13 @@ service cloud.firestore {
         function validBookmark() {
           let d = request.resource.data;
           return d.keys().hasOnly(
-              ['postId', 'theme', 'rootLabel', 'nodeCount', 'authorName',
-               'postCreatedAt', 'createdAt'])
+              ['postId', 'theme', 'rootLabel', 'title', 'nodeCount',
+               'authorName', 'postCreatedAt', 'createdAt'])
             && d.postId == postId
             && d.theme is string && d.theme.size() <= 200
             && d.rootLabel is string && d.rootLabel.size() <= 300
+            && (!('title' in d)
+                || (d.title is string && d.title.size() <= 100))
             && d.nodeCount is int && d.nodeCount >= 0
             && (d.authorName == null
                 || (d.authorName is string && d.authorName.size() <= 30))
@@ -184,13 +186,17 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.keys().hasOnly(
             ['id', 'authorUid', 'authorName', 'theme', 'rootLabel',
-             'nodes', 'edges', 'commentCount', 'createdAt'])
+             'title', 'body', 'nodes', 'edges', 'commentCount', 'createdAt'])
           && d.id == postId
           && d.authorUid == request.auth.uid
           && validAuthorName(d.authorName)
           && d.theme is string && d.theme.size() >= 1 && d.theme.size() <= 200
           && d.rootLabel is string
           && d.rootLabel.size() >= 1 && d.rootLabel.size() <= 300
+          && (!('title' in d)
+              || (d.title is string && d.title.size() >= 1 && d.title.size() <= 100))
+          && (!('body' in d)
+              || (d.body is string && d.body.size() >= 1 && d.body.size() <= 1000))
           && d.nodes is list && d.nodes.size() >= 1 && d.nodes.size() <= 200
           && d.edges is list && d.edges.size() <= 400
           && d.commentCount == 0

@@ -125,6 +125,10 @@ export interface CommunityPost {
   theme: string;
   /** 公開の起点に選んだノードのラベル */
   rootLabel: string;
+  /** 投稿者が自由に付けるタイトル。省略時は表示で rootLabel を使う */
+  title?: string;
+  /** 投稿者が自由に書く本文。省略可 */
+  body?: string;
   nodes: MindMapNode[];
   edges: MindMapEdge[];
   commentCount: number;
@@ -148,6 +152,8 @@ export interface Bookmark {
   postId: string;
   theme: string;
   rootLabel: string;
+  /** 投稿者が付けたタイトル（あれば表示で優先する） */
+  title?: string;
   nodeCount: number;
   authorName: string | null;
   postCreatedAt: number;

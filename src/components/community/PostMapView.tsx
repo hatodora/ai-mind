@@ -3,19 +3,25 @@
 import { useMemo } from "react";
 import ReactFlow, { type Edge, type Node } from "reactflow";
 import "reactflow/dist/style.css";
-import type { CommunityPost } from "@/types";
+import type { MindMapEdge, MindMapNode } from "@/types";
 import { CustomNode } from "@/components/mindmap/CustomNode";
 
 const nodeTypes = { mindNode: CustomNode };
 
 /**
- * 投稿された部分ツリーの読み取り専用表示（NF-01b）。
- * 公開時点のスナップショットをそのまま描画する（編集不可・閲覧のみ）。
+ * 部分ツリーの読み取り専用表示（NF-01b）。
+ * 公開済み投稿の閲覧だけでなく、公開前のプレビューにも使う（編集不可・閲覧のみ）。
  */
-export function PostMapView({ post }: { post: CommunityPost }) {
+export function PostMapView({
+  nodes: postNodes,
+  edges: postEdges,
+}: {
+  nodes: MindMapNode[];
+  edges: MindMapEdge[];
+}) {
   const nodes: Node[] = useMemo(
     () =>
-      post.nodes.map((n) => ({
+      postNodes.map((n) => ({
         id: n.id,
         type: "mindNode",
         position: n.position,
@@ -24,18 +30,18 @@ export function PostMapView({ post }: { post: CommunityPost }) {
         connectable: false,
         selectable: false,
       })),
-    [post.nodes],
+    [postNodes],
   );
   const edges: Edge[] = useMemo(
     () =>
-      post.edges.map((e) => ({
+      postEdges.map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
         type: "default",
         style: { stroke: "rgba(129, 216, 208, 0.4)", strokeWidth: 1.5 },
       })),
-    [post.edges],
+    [postEdges],
   );
 
   return (
