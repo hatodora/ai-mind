@@ -11,6 +11,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { useMindMapStore } from "@/store/mindmap-store";
+import { AIRatioChart } from "./AIRatioChart";
 import { CustomNode } from "./CustomNode";
 
 const nodeTypes = { mindNode: CustomNode };
@@ -81,7 +82,9 @@ export function MindMapCanvas() {
   );
 
   return (
-    <div className="canvas-paper h-full w-full">
+    <div className="canvas-paper relative h-full w-full">
+      {/* AI使用率（NF-04改）。30ノード以上のマップでのみ表示 */}
+      {map && <AIRatioChart nodes={map.nodes} />}
       <ReactFlow
         nodes={nodes}
         edges={edges}

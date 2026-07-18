@@ -87,7 +87,12 @@ export async function aiReview(
     theme: string;
     nodes: { label: string; role: string }[];
   } & PersonaOptions,
-): Promise<{ review: string; usedNodeLabels?: string[] }> {
+): Promise<{
+  review: string;
+  usedNodeLabels?: string[];
+  /** マップ全体のトピック分類（NF-05）。パース失敗時は無い */
+  categories?: { name: string; nodes: string[] }[];
+}> {
   return shouldUseFunctions()
     ? callFunction("aiReview", payload)
     : callRoute("/api/ai/review", payload);

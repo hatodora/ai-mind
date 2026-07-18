@@ -7,12 +7,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { AssistLevel } from "@/types";
 import {
   AI_REQUEST_COST,
+  HELPER_STALL_SECONDS,
   UNLOCK_THRESHOLD,
   bulkPenalty,
   bulkPenaltyNodes,
   countUserNodes,
   creditsToTurns,
   effectiveLevel,
+  helperEligible,
   isUnlocked,
   nodesUntilNextTurn,
 } from "@/lib/gauge";
@@ -23,9 +25,6 @@ import {
 import { canPostToCommunity } from "@/lib/community";
 import { Celebration } from "./Celebration";
 import { PublishModal } from "./PublishModal";
-
-/** 行き詰まり検知（NF-04）: この秒数無操作なら AI サポート導線を出す */
-const STALL_SECONDS = 45;
 
 /** マイルストーン演出（UP-01）: このノード数に到達したら祝う */
 const MILESTONES = [10, 25, 50, 100, 200];
@@ -183,6 +182,15 @@ export function ControlPanel() {
   const [error, setError] = useState<string | null>(null);
   const [adoptedFlash, setAdoptedFlash] = useState(false);
   const [stalled, setStalled] = useState(false);
+  /** トピック分類（NF-05）。ラベル→ノードidへ引き当て済み */
+  const [categories, setCategories] = useState<
+    { name: string; nodeIds: string[] }[]
+  >([]);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  /** いま光っているノードの出どころ（NF-03 レビュー根拠 / NF-05 トピック） */
+  const [highlightSource, setHighlightSource] = useState<
+    "review" | "category" | null
+  >(null);
   const [celebration, setCelebration] = useState<{
     title: string;
     subtitle?: string;
@@ -218,9 +226,16 @@ export function ControlPanel() {
     !!selected &&
     loading !== "ai";
 
-  // 行き詰まり検知（NF-04）。計測開始はこの effect 内で行う
+  const nodeCount = map?.nodes.length ?? 0;
+  const mapId = map?.id ?? null;
+
+  // 行き詰まり検知（NF-04改）。計測開始はこの effect 内で行う。
+  // 3分間ノードが伸びない（＝活動がない）と stalled になる。
+  // 自分の番でもAIターン明けでも、ノード追加で依存が変わり計測はやり直しになる
   useEffect(() => {
     if (!isUserTurn || aiSuggestions.length > 0) return;
+    // setState を effect 内で直接呼ばない（次のティックでリセット）
+    const reset = setTimeout(() => setStalled(false), 0);
     lastActivityRef.current = Date.now();
     const timer = setInterval(() => {
       const last = lastActivityRef.current;
@@ -228,16 +243,17 @@ export function ControlPanel() {
         lastActivityRef.current = Date.now();
         return;
       }
-      if (Date.now() - last > STALL_SECONDS * 1000) {
+      if (Date.now() - last > HELPER_STALL_SECONDS * 1000) {
         setStalled(true);
       }
     }, 5000);
-    return () => clearInterval(timer);
-  }, [isUserTurn, aiSuggestions.length]);
+    return () => {
+      clearTimeout(reset);
+      clearInterval(timer);
+    };
+  }, [isUserTurn, aiSuggestions.length, nodeCount, mapId]);
 
   // マイルストーン演出（UP-01a）。マップが切り替わったら計測をリセット
-  const nodeCount = map?.nodes.length ?? 0;
-  const mapId = map?.id ?? null;
   useEffect(() => {
     prevNodeCountRef.current = null;
   }, [mapId]);
@@ -269,8 +285,15 @@ export function ControlPanel() {
     touch();
   };
 
-  const handleRequestAI = async () => {
-    if (!selected || !canAskAI) return;
+  /**
+   * AI提案を求める。free = お助け機能（NF-04改）からの呼び出しで、
+   * ゲージ残量に関係なく1回無料（spendGauge しない）。
+   */
+  const handleRequestAI = async (opts?: { free?: boolean }) => {
+    const free = opts?.free ?? false;
+    if (!selected) return;
+    if (!free && !canAskAI) return;
+    if (free && loading === "ai") return;
     setLoading("ai");
     setError(null);
     setAISuggestions([]);
@@ -304,7 +327,7 @@ export function ControlPanel() {
         setError("AIから提案を得られませんでした。もう一度お試しください");
         return;
       }
-      spendGauge(AI_REQUEST_COST);
+      if (!free) spendGauge(AI_REQUEST_COST);
       noteAIRequest();
       setAISuggestions(suggestions);
       setTurn("ai");
@@ -369,6 +392,9 @@ export function ControlPanel() {
     setError(null);
     setReview(null);
     setHighlightedNodes([]);
+    setHighlightSource(null);
+    setCategories([]);
+    setActiveCategory(null);
     touch();
     const requestMapId = map.id;
     try {
@@ -394,7 +420,22 @@ export function ControlPanel() {
             .filter((n) => labels.has(n.data.label))
             .map((n) => n.id),
         );
+        setHighlightSource("review");
       }
+      // トピック分類（NF-05）。ラベル→ノードidへ引き当てて保持する
+      setCategories(
+        (json.categories ?? [])
+          .map((c) => {
+            const inCat = new Set(c.nodes);
+            return {
+              name: c.name,
+              nodeIds: current.nodes
+                .filter((n) => inCat.has(n.data.label))
+                .map((n) => n.id),
+            };
+          })
+          .filter((c) => c.nodeIds.length > 0),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -402,8 +443,34 @@ export function ControlPanel() {
     }
   };
 
-  // 行き詰まり時、AI提案が使えるならそちらへ、無理ならノード解説へ誘導
-  const stallCanSuggest = canAskAI;
+  // お助け機能（NF-04改）: 3分停滞＋前提条件（30ノード以上・AI使用率5割以下）を
+  // すべて満たしたときだけ、ゲージ無関係の無料AI提案を静かに差し出す
+  const helperVisible =
+    stalled &&
+    isUserTurn &&
+    aiSuggestions.length === 0 &&
+    aiEnabled &&
+    !!selected &&
+    !!map &&
+    helperEligible(map.nodes);
+
+  /** トピックチップのタップ（NF-05）: 関連ノードを光らせる。再タップで解除 */
+  const handleCategoryTap = (c: { name: string; nodeIds: string[] }) => {
+    if (activeCategory === c.name) {
+      setActiveCategory(null);
+      setHighlightedNodes([]);
+      setHighlightSource(null);
+    } else {
+      setActiveCategory(c.name);
+      setHighlightedNodes(c.nodeIds);
+      setHighlightSource("category");
+    }
+  };
+
+  // トピックの割合（NF-05）の分母: root を除く全ノード
+  const nonRootCount = map.nodes.filter(
+    (n) => n.data.role !== "root",
+  ).length;
 
   /** 完成フロー（UP-01b）: 結論レビューを読んだ後に一時保存 → 完成演出 */
   const handleComplete = () => {
@@ -523,7 +590,7 @@ export function ControlPanel() {
           </button>
           {aiEnabled && (
             <button
-              onClick={handleRequestAI}
+              onClick={() => void handleRequestAI()}
               disabled={!canAskAI}
               className="btn-lift btn-secondary mt-2 w-full py-3 text-[13px] font-bold !text-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
               title={
@@ -546,25 +613,28 @@ export function ControlPanel() {
         </div>
       )}
 
-      {/* 行き詰まり検知（NF-04） */}
-      {stalled && isUserTurn && aiSuggestions.length === 0 && (
+      {/* お助け機能（NF-04改）: 条件成立時のみ静かに出現。ポップアップは出さない */}
+      {helperVisible && (
         <div className="anim-float-up rounded-[12px] border border-dashed border-ai-line bg-tint-accent px-4 py-3.5">
           <div className="mb-1.5 text-[13px] font-bold text-accent-soft">
             行き詰まっていませんか？
           </div>
           <p className="mb-3 text-xs leading-relaxed text-muted">
-            {stallCanSuggest
-              ? "AI に相談して、視点を変えてみるのもひとつの手です。"
-              : "選択中のノードの意味を AI に聞いてみるのもひとつの手です。"}
+            ここまで自分の頭でよく広げています。今回だけ、ゲージを使わずに
+            AI へ相談できます。
           </p>
           <button
-            onClick={stallCanSuggest ? handleRequestAI : handleExplain}
-            disabled={!selected}
+            onClick={() => void handleRequestAI({ free: true })}
+            disabled={loading === "ai"}
             className="btn-lift btn-primary rounded-[12px] px-4 py-2 text-xs disabled:opacity-40"
           >
-            {stallCanSuggest
-              ? "AI にアイデアを聞く"
-              : "このノードについて聞く"}
+            {loading === "ai" ? (
+              <span className="inline-flex items-center gap-2">
+                <TypingDots dark /> 考え中…
+              </span>
+            ) : (
+              "無料で AI にアイデアを聞く"
+            )}
           </button>
         </div>
       )}
@@ -711,15 +781,59 @@ export function ControlPanel() {
           </div>
         )}
 
+        {/* トピック分類（NF-05）: タップで関連ノードが光る＋全体の割合 */}
+        {review && categories.length > 0 && (
+          <div className="anim-float-up card-soft p-4">
+            <div className="micro-label mb-2.5">トピック分類</div>
+            <div className="flex flex-wrap gap-1.5">
+              {categories.map((c) => {
+                const active = activeCategory === c.name;
+                const pct = Math.round(
+                  (c.nodeIds.length / Math.max(1, nonRootCount)) * 100,
+                );
+                return (
+                  <button
+                    key={c.name}
+                    onClick={() => handleCategoryTap(c)}
+                    className={`rounded-full px-3.5 py-2 text-[12px] font-bold transition-all ${
+                      active
+                        ? "bg-accent text-on-accent"
+                        : "border border-line bg-card text-muted hover:border-accent/50 hover:text-accent-soft"
+                    }`}
+                  >
+                    {c.name}
+                    <span
+                      className={`ml-1.5 font-display text-[10px] ${
+                        active ? "text-on-accent/80" : "text-placeholder"
+                      }`}
+                    >
+                      {pct}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {activeCategory && (
+              <p className="mt-2.5 text-[10px] leading-relaxed text-muted">
+                「{activeCategory}」の関連ノードをマップ上でハイライト中。
+                もう一度タップすると解除できます
+              </p>
+            )}
+          </div>
+        )}
+
         {/* レビュー根拠のハイライト（NF-03）: AI要約の非ブラックボックス化 */}
-        {highlightedNodeIds.length > 0 && (
+        {highlightedNodeIds.length > 0 && highlightSource === "review" && (
           <div className="flex items-center justify-between gap-2 rounded-[12px] bg-tint-warm px-4 py-2.5">
             <span className="text-[11px] leading-relaxed text-warm">
               レビューの根拠になった {highlightedNodeIds.length} 個のノードを
               マップ上でハイライト中
             </span>
             <button
-              onClick={() => setHighlightedNodes([])}
+              onClick={() => {
+                setHighlightedNodes([]);
+                setHighlightSource(null);
+              }}
               className="shrink-0 rounded-full border border-line bg-card px-3 py-1 text-[10px] font-bold text-muted transition-colors hover:text-ink"
             >
               解除

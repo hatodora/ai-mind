@@ -179,24 +179,52 @@ function personaAgeBlock(
   return `${PERSONA_GUIDES[personality]}\n${AGE_GUIDES[ageBand]}`;
 }
 
+/** トピック分類（NF-05）のカテゴリ数上限 */
+const MAX_CATEGORIES = 8;
+/** トピック分類（NF-05）のカテゴリ名の最大文字数 */
+const MAX_CATEGORY_NAME_LEN = 40;
+
+/** マップ全体を分類したトピック（NF-05） */
+interface ReviewCategory {
+  name: string;
+  nodes: string[];
+}
+
 /**
- * レビュー応答から根拠ノード行（NF-03）を分離する。
- * src/lib/ai-validate.ts の splitReviewResponse と同一ロジック（別パッケージのため複製）。
+ * s の最初の '[' から対応する ']' までを取り出す。
+ * ラベルに [ ] が含まれても壊れないよう、文字列リテラルを考慮して走査する。
  */
-function splitReviewResponse(text: string): {
-  review: string;
-  usedNodeLabels: string[];
-} {
-  const idx = text.lastIndexOf("USED_NODES");
-  if (idx === -1) return { review: text.trim(), usedNodeLabels: [] };
-  const tail = text.slice(idx);
-  const arrayMatch = tail.match(/\[[\s\S]*?\]/);
-  const review = text.slice(0, idx).replace(/[`\s]+$/, "").trim();
-  if (!arrayMatch) return { review, usedNodeLabels: [] };
+function extractJsonArray(s: string): string | null {
+  const start = s.indexOf("[");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "[") depth++;
+    else if (ch === "]") {
+      depth--;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/** USED_NODES 配列（NF-03）をパースして検証する。壊れていれば空配列 */
+function parseUsedNodes(raw: string | null): string[] {
+  if (!raw) return [];
   try {
-    const parsed: unknown = JSON.parse(arrayMatch[0]);
-    if (!Array.isArray(parsed)) return { review, usedNodeLabels: [] };
-    const labels = Array.from(
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return Array.from(
       new Set(
         parsed
           .filter(
@@ -205,10 +233,64 @@ function splitReviewResponse(text: string): {
           .map((s) => s.trim().slice(0, 300)),
       ),
     ).slice(0, 50);
-    return { review, usedNodeLabels: labels };
   } catch {
-    return { review, usedNodeLabels: [] };
+    return [];
   }
+}
+
+/** CATEGORIES 配列（NF-05）をパースして検証する。壊れていれば空配列 */
+function parseCategories(raw: string | null): ReviewCategory[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    const out: ReviewCategory[] = [];
+    for (const item of parsed) {
+      if (out.length >= MAX_CATEGORIES) break;
+      const o = (item ?? {}) as { name?: unknown; nodes?: unknown };
+      if (typeof o.name !== "string" || !Array.isArray(o.nodes)) continue;
+      const name = o.name.trim().slice(0, MAX_CATEGORY_NAME_LEN);
+      if (name.length === 0 || seen.has(name)) continue;
+      const nodes = Array.from(
+        new Set(
+          o.nodes
+            .filter(
+              (s): s is string => typeof s === "string" && s.trim().length > 0,
+            )
+            .map((s) => s.trim().slice(0, 300)),
+        ),
+      ).slice(0, 200);
+      if (nodes.length === 0) continue;
+      seen.add(name);
+      out.push({ name, nodes });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * レビュー応答から根拠ノード行（NF-03）とトピック分類行（NF-05）を分離する。
+ * src/lib/ai-validate.ts の splitReviewResponse と同一ロジック（別パッケージのため複製）。
+ */
+function splitReviewResponse(text: string): {
+  review: string;
+  usedNodeLabels: string[];
+  categories: ReviewCategory[];
+} {
+  const unIdx = text.lastIndexOf("USED_NODES");
+  const catIdx = text.lastIndexOf("CATEGORIES");
+  // 本文は、最初に現れるマーカーの手前まで（出力順が入れ替わっても壊れない）
+  const cuts = [unIdx, catIdx].filter((i) => i !== -1);
+  const cut = cuts.length === 0 ? text.length : Math.min(...cuts);
+  const review = text.slice(0, cut).replace(/[`\s]+$/, "").trim();
+  const usedNodeLabels =
+    unIdx === -1 ? [] : parseUsedNodes(extractJsonArray(text.slice(unIdx)));
+  const categories =
+    catIdx === -1 ? [] : parseCategories(extractJsonArray(text.slice(catIdx)));
+  return { review, usedNodeLabels, categories };
 }
 
 // ---------- 共同編集の招待（NF-01a） ----------
@@ -468,17 +550,27 @@ ${nodeList}
 
 意識高い系の横文字や抽象論は禁止。人格と読み手のガイドに沿ったトーンで答えてください。
 
-最後に、回答の中で実際に参照・言及したノードのラベルを、本文とは別の最終行に
-USED_NODES: ["ラベルA", "ラベルB"]
-という形式で出力してください（上のリストにあるラベルをそのまま使うこと。説明やコードブロックは不要）。`;
+最後に、本文とは別の行として次の2行を順に出力してください（説明やコードブロックは不要。
+どちらも上のリストにあるラベルをそのまま使うこと）:
 
+1行目 — 回答の中で実際に参照・言及したノードのラベル:
+USED_NODES: ["ラベルA", "ラベルB"]
+
+2行目 — マップ全体のノードを内容の近さで3〜6個のトピックに分類した結果
+（トピック名は10文字以内の日常語。各ラベルは最大1つのトピックにだけ入れる）:
+CATEGORIES: [{"name":"トピック名","nodes":["ラベルA","ラベルB"]}]`;
+
+    // キャッシュキーはペイロードのハッシュでプロンプト本文を含まないため、
+    // プロンプト仕様が変わったら promptVersion を上げて古いキャッシュを避ける
+    // （v2: NF-05 CATEGORIES 行の追加）
     const { text } = await withCache(
       "review",
-      { theme, nodeList, ageBand, personality },
+      { theme, nodeList, ageBand, personality, promptVersion: 2 },
       () => generate(prompt),
     );
-    // 根拠ノード行（NF-03）はキャッシュには生のまま保存し、返す直前に分離する
-    const { review, usedNodeLabels } = splitReviewResponse(text);
-    return { review, usedNodeLabels };
+    // 根拠ノード（NF-03）・トピック分類（NF-05）はキャッシュには生のまま保存し、
+    // 返す直前に分離する
+    const { review, usedNodeLabels, categories } = splitReviewResponse(text);
+    return { review, usedNodeLabels, categories };
   },
 );

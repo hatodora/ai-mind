@@ -68,6 +68,39 @@ export function bulkPenaltyNodes(n: number): number {
   return BULK_PENALTY_MULT * n;
 }
 
+// ---------- お助け機能（NF-04改） ----------
+
+/** お助け機能の前提: マップの総ノード数（root含む）がこれ以上 */
+export const HELPER_MIN_NODES = 30;
+/** お助け機能の前提: AI使用率がこれ以下 */
+export const HELPER_MAX_AI_RATIO = 0.5;
+/** お助け機能の発動: この秒数ノードが伸びない（活動がない）と行き詰まりとみなす */
+export const HELPER_STALL_SECONDS = 180;
+
+/** AIが作ったノード数（root を除く） */
+export function countAINodes(nodes: MindMapNode[]): number {
+  return nodes.filter((n) => n.data.role === "ai").length;
+}
+
+/** AI使用率 = AIノード / (人間＋AI)。root は数えない。ノードが無ければ 0 */
+export function aiUsageRatio(nodes: MindMapNode[]): number {
+  const user = countUserNodes(nodes);
+  const ai = countAINodes(nodes);
+  const total = user + ai;
+  return total === 0 ? 0 : ai / total;
+}
+
+/**
+ * お助け機能（ゲージ無関係の無料AI提案1回）の前提条件。
+ * 「ある程度自力で広げたのに行き詰まっている人」だけを救済する。
+ */
+export function helperEligible(nodes: MindMapNode[]): boolean {
+  return (
+    nodes.length >= HELPER_MIN_NODES &&
+    aiUsageRatio(nodes) <= HELPER_MAX_AI_RATIO
+  );
+}
+
 /** 表示用: クレジット → AIターン数（切り捨て・負値は0） */
 export function creditsToTurns(credits: number): number {
   return Math.max(0, Math.floor(credits / CREDITS_PER_TURN));

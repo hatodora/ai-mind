@@ -53,17 +53,23 @@ ${nodeList}
 
 意識高い系の横文字や抽象論は禁止。人格と読み手のガイドに沿ったトーンで答えてください。
 
-最後に、回答の中で実際に参照・言及したノードのラベルを、本文とは別の最終行に
+最後に、本文とは別の行として次の2行を順に出力してください（説明やコードブロックは不要。
+どちらも上のリストにあるラベルをそのまま使うこと）:
+
+1行目 — 回答の中で実際に参照・言及したノードのラベル:
 USED_NODES: ["ラベルA", "ラベルB"]
-という形式で出力してください（上のリストにあるラベルをそのまま使うこと。説明やコードブロックは不要）。`;
+
+2行目 — マップ全体のノードを内容の近さで3〜6個のトピックに分類した結果
+（トピック名は10文字以内の日常語。各ラベルは最大1つのトピックにだけ入れる）:
+CATEGORIES: [{"name":"トピック名","nodes":["ラベルA","ラベルB"]}]`;
 
     const model = getModel();
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
 
-    // 根拠ノード行（NF-03）を本文から分離して構造化して返す
-    const { review, usedNodeLabels } = splitReviewResponse(text);
-    return NextResponse.json({ review, usedNodeLabels });
+    // 根拠ノード行（NF-03）とトピック分類行（NF-05）を本文から分離して返す
+    const { review, usedNodeLabels, categories } = splitReviewResponse(text);
+    return NextResponse.json({ review, usedNodeLabels, categories });
   } catch (error) {
     console.error("[api/ai/review]", error);
     return NextResponse.json(
