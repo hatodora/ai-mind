@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
-import { DEFAULT_PERSONALITY, ageFromBirthDate } from "@/lib/ai-persona";
+import {
+  DEFAULT_PERSONALITY,
+  MAX_BIRTHDATE_EDITS,
+  ageFromBirthDate,
+} from "@/lib/ai-persona";
+import { BirthDatePicker } from "@/components/BirthDatePicker";
 import type { AIPersonality, AssistLevel, UserProfile } from "@/types";
 
 /** AIアシスト既定レベルの選択肢（UP-02） */
@@ -100,8 +105,16 @@ function SettingsForm({
   const ageValid =
     derivedAge !== null && derivedAge >= 5 && derivedAge <= 120;
 
+  // 誕生日の自己変更は2回まで（SEC-01 F-1）。一度設定した誕生日は空にもできない
+  const hadBirthDate = !!profile.birthDate;
+  const editsUsed = profile.birthDateEdits ?? 0;
+  const editsRemaining = Math.max(0, MAX_BIRTHDATE_EDITS - editsUsed);
+  const birthDateLocked = hadBirthDate && editsRemaining <= 0;
+  const birthDateCleared = hadBirthDate && birthDate === "";
+  const canSave = ageValid && !birthDateCleared;
+
   const handleSave = async () => {
-    if (!ageValid || busy) return;
+    if (!canSave || busy) return;
     setBusy(true);
     setError(null);
     setSaved(false);
@@ -148,19 +161,29 @@ function SettingsForm({
           />
 
           <label className="mb-1.5 block text-[13px] font-bold">誕生日</label>
-          <input
-            type="date"
+          <BirthDatePicker
             value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            className="w-full rounded-[12px] border border-line bg-card px-5 py-3.5 text-[15px] text-ink outline-none ring-accent/40 transition-shadow focus:border-accent/60 focus:ring-2 [color-scheme:dark]"
+            onChange={setBirthDate}
+            disabled={birthDateLocked}
           />
-          {!ageValid && birthDate !== "" ? (
+          {birthDateLocked ? (
+            <p className="mt-1.5 text-[11px] text-danger">
+              誕生日の変更回数の上限（{MAX_BIRTHDATE_EDITS}回）に達しています。
+              変更が必要な場合は管理者にお問い合わせください
+            </p>
+          ) : birthDateCleared ? (
+            <p className="mt-1.5 text-[11px] text-danger">
+              誕生日は空にできません
+            </p>
+          ) : !ageValid && birthDate !== "" ? (
             <p className="mt-1.5 text-[11px] text-danger">
               5〜120歳になる誕生日を入力してください
             </p>
           ) : (
             <p className="mt-1.5 text-[11px] text-muted">
               年齢に合わせてAIの言葉づかいを調整します
+              {hadBirthDate &&
+                `（あと${editsRemaining}回まで変更できます）`}
             </p>
           )}
 
@@ -270,7 +293,7 @@ function SettingsForm({
 
           <button
             onClick={handleSave}
-            disabled={!ageValid || busy}
+            disabled={!canSave || busy}
             className="btn-lift btn-primary mt-8 w-full py-4 text-[15px] disabled:opacity-40"
           >
             {busy ? "保存中…" : "保存する"}

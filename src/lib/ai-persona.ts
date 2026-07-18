@@ -9,6 +9,11 @@ import type { AgeBand, AIPersonality } from "@/types";
 
 export const DEFAULT_AGE_BAND: AgeBand = "worker";
 export const DEFAULT_PERSONALITY: AIPersonality = "advisor";
+/** 誕生日を自分で変更できる回数の上限（SEC-01 F-1）。rules 側にも同じ値がある */
+export const MAX_BIRTHDATE_EDITS = 2;
+/** 誕生日として選べる最小・最大年齢（UP-06 / validUser() と同じ範囲） */
+export const MIN_BIRTHDATE_AGE = 5;
+export const MAX_BIRTHDATE_AGE = 120;
 
 const AGE_BANDS: readonly AgeBand[] = [
   "essential",

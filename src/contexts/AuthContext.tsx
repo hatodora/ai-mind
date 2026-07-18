@@ -25,7 +25,7 @@ import {
 } from "@/lib/firebase";
 import { createFirestoreRepo, localRepo, setRepo } from "@/lib/repo";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
-import { DEFAULT_PERSONALITY } from "@/lib/ai-persona";
+import { DEFAULT_PERSONALITY, MAX_BIRTHDATE_EDITS } from "@/lib/ai-persona";
 import type { AIPersonality, AssistLevel, UserProfile } from "@/types";
 
 /** 表示名未入力時のランダム生成（例: 思索家_k3x9pz） */
@@ -157,13 +157,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!u) throw new Error("ログインしていません");
       const now = Date.now();
       // Firestore は undefined を保存できないため、誕生日は判明している時だけ持つ
-      const birthDate = input.birthDate ?? profile?.birthDate;
+      const prevBirthDate = profile?.birthDate;
+      const birthDate = input.birthDate ?? prevBirthDate;
+      // 一度設定した誕生日は空にできない（rules でも強制。クリア→再設定で
+      // 下の変更回数制限を回避させないため）
+      if (prevBirthDate && !birthDate) {
+        throw new Error("誕生日は空にできません");
+      }
+      // 誕生日の自己変更は2回まで（SEC-01 F-1）。以降は管理者への問い合わせが必要
+      const prevEdits = profile?.birthDateEdits ?? 0;
+      const birthDateChanged =
+        !!prevBirthDate && !!birthDate && birthDate !== prevBirthDate;
+      if (birthDateChanged && prevEdits >= MAX_BIRTHDATE_EDITS) {
+        throw new Error(
+          `誕生日の変更は${MAX_BIRTHDATE_EDITS}回までです。それ以上の変更はお問い合わせください`,
+        );
+      }
+      const birthDateEdits = birthDateChanged ? prevEdits + 1 : prevEdits;
       const next: UserProfile = {
         uid: u.uid,
         email: u.email ?? "",
         displayName: input.displayName?.trim() || randomDisplayName(),
         age: input.age,
-        ...(birthDate ? { birthDate } : {}),
+        ...(birthDate ? { birthDate, birthDateEdits } : {}),
         photoURL: input.photoURL ?? u.photoURL ?? null,
         assistLevel:
           input.assistLevel ?? profile?.assistLevel ?? DEFAULT_ASSIST_LEVEL,

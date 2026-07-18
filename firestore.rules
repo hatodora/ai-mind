@@ -36,9 +36,9 @@ service cloud.firestore {
       function validUser() {
         let d = request.resource.data;
         return d.keys().hasOnly(
-            ['uid', 'email', 'displayName', 'age', 'birthDate', 'photoURL',
-             'assistLevel', 'personality', 'showNameInCommunity', 'role',
-             'createdAt', 'updatedAt'])
+            ['uid', 'email', 'displayName', 'age', 'birthDate', 'birthDateEdits',
+             'photoURL', 'assistLevel', 'personality', 'showNameInCommunity',
+             'role', 'createdAt', 'updatedAt'])
           && d.uid == uid
           // email は認証トークンと一致するもののみ（他人のアドレスを保存できない）
           && d.email is string && d.email.size() <= 320
@@ -48,6 +48,10 @@ service cloud.firestore {
           && d.age is int && d.age >= 5 && d.age <= 120
           && (!('birthDate' in d)
               || (d.birthDate is string && d.birthDate.size() == 10))
+          // 誕生日の自己変更回数（SEC-01 F-1）。0〜2回まで、超過は管理者対応
+          && (!('birthDateEdits' in d)
+              || (d.birthDateEdits is int
+                  && d.birthDateEdits >= 0 && d.birthDateEdits <= 2))
           && (d.photoURL == null
               || (d.photoURL is string && d.photoURL.size() <= 2048))
           && (!('assistLevel' in d)
@@ -62,12 +66,33 @@ service cloud.firestore {
         return request.resource.data.role == 'user'
           || (resource != null && request.resource.data.role == resource.data.role);
       }
+      // 誕生日は一度設定したら本人は2回までしか変更できない（SEC-01 F-1）。
+      // クリア→再設定で回数をリセットできないよう、既存の誕生日を消すことも禁止する。
+      // 3回目以降・削除からの復元は isAdmin() 経由（管理者への問い合わせ対応）のみ許可。
+      function birthDateEditsOk() {
+        let d = request.resource.data;
+        let hadBirthDate = resource != null && ('birthDate' in resource.data);
+        let oldBirthDate = hadBirthDate ? resource.data.birthDate : null;
+        let newBirthDate = ('birthDate' in d) ? d.birthDate : null;
+        let oldEdits = (resource != null && 'birthDateEdits' in resource.data)
+          ? resource.data.birthDateEdits : 0;
+        let newEdits = ('birthDateEdits' in d) ? d.birthDateEdits : 0;
+        let changed = hadBirthDate && newBirthDate != null
+          && newBirthDate != oldBirthDate;
+        return (!hadBirthDate || newBirthDate != null)
+          && (changed
+              ? (oldEdits < 2 && newEdits == oldEdits + 1)
+              : newEdits == oldEdits);
+      }
 
       allow get: if isSelf() || isAdmin();
       allow list: if isAdmin();
-      allow create: if (isSelf() && validUser() && request.resource.data.role == 'user')
+      allow create: if (isSelf() && validUser()
+                        && request.resource.data.role == 'user'
+                        && birthDateEditsOk())
                     || isAdmin();
-      allow update: if (isSelf() && validUser() && roleUnchanged())
+      allow update: if (isSelf() && validUser() && roleUnchanged()
+                        && birthDateEditsOk())
                     || isAdmin();
       allow delete: if isSelf() || isAdmin();
 

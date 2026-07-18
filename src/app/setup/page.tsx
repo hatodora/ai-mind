@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth, randomDisplayName } from "@/contexts/AuthContext";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
 import { ageFromBirthDate } from "@/lib/ai-persona";
+import { BirthDatePicker } from "@/components/BirthDatePicker";
 import type { AssistLevel } from "@/types";
 
 /** AIアシスト既定レベルの選択肢（UP-02） */
@@ -119,12 +120,7 @@ export default function SetupPage() {
           <label className="mb-1.5 block text-[13px] font-bold">
             誕生日 <span className="font-normal text-danger">（必須）</span>
           </label>
-          <input
-            type="date"
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            className="w-full rounded-[12px] border border-line bg-card px-5 py-3.5 text-[15px] text-ink outline-none ring-accent/40 transition-shadow placeholder:text-placeholder focus:border-accent/60 focus:ring-2 [color-scheme:dark]"
-          />
+          <BirthDatePicker value={birthDate} onChange={setBirthDate} />
           {birthDate !== "" && !ageValid && (
             <p className="mt-1.5 text-[11px] text-danger">
               5〜120歳になる誕生日を入力してください

@@ -93,6 +93,11 @@ export interface UserProfile {
   age: number;
   /** 誕生日（YYYY-MM-DD）。年齢帯の導出元（UP-06）。旧プロフィールには無い */
   birthDate?: string;
+  /**
+   * 誕生日を自分で変更した回数（SEC-01 F-1）。初回登録はカウントしない。
+   * 2に達すると本人はこれ以上変更できず、管理者への問い合わせが必要になる。
+   */
+  birthDateEdits?: number;
   /** 任意。アバターとして扱う */
   photoURL: string | null;
   /** AIアシストの既定レベル（UP-02）。新規マップ作成時の初期値になる。省略時は既定 */
