@@ -1,0 +1,66 @@
+"use client";
+
+import { useMemo } from "react";
+import ReactFlow, { type Edge, type Node } from "reactflow";
+import "reactflow/dist/style.css";
+import type { MindMapEdge, MindMapNode } from "@/types";
+import { CustomNode } from "@/components/mindmap/CustomNode";
+
+const nodeTypes = { mindNode: CustomNode };
+
+/**
+ * 部分ツリーの読み取り専用表示（NF-01b）。
+ * 公開済み投稿の閲覧だけでなく、公開前のプレビューにも使う（編集不可・閲覧のみ）。
+ */
+export function PostMapView({
+  nodes: postNodes,
+  edges: postEdges,
+}: {
+  nodes: MindMapNode[];
+  edges: MindMapEdge[];
+}) {
+  const nodes: Node[] = useMemo(
+    () =>
+      postNodes.map((n) => ({
+        id: n.id,
+        type: "mindNode",
+        position: n.position,
+        data: n.data,
+        draggable: false,
+        connectable: false,
+        selectable: false,
+      })),
+    [postNodes],
+  );
+  const edges: Edge[] = useMemo(
+    () =>
+      postEdges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: "default",
+        style: { stroke: "rgba(129, 216, 208, 0.4)", strokeWidth: 1.5 },
+      })),
+    [postEdges],
+  );
+
+  return (
+    <div className="canvas-paper h-full w-full overflow-hidden rounded-[12px] border border-line">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        fitView
+        fitViewOptions={{ padding: 0.3 }}
+        minZoom={0.1}
+        maxZoom={1.5}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        zoomOnScroll={false}
+        zoomOnDoubleClick={false}
+        style={{ background: "transparent" }}
+      />
+    </div>
+  );
+}

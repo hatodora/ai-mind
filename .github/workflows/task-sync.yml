@@ -1,0 +1,40 @@
+name: Task Sync to Notion
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - TASKS.md
+  workflow_dispatch:
+
+env:
+  NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+  NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: env.NOTION_TOKEN && env.NOTION_DATABASE_ID
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install @notionhq/client dotenv
+
+      - name: Sync TASKS.md to Notion
+        run: node scripts/sync-notion.js
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+
+      - name: Report status
+        if: always()
+        run: |
+          echo "✅ Task sync completed"
+          echo "Notion Database: https://www.notion.so/$NOTION_DATABASE_ID"
