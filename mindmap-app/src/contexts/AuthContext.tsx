@@ -97,10 +97,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(u);
       if (u) {
         // メール確認済みユーザーのみ Firestore を使う（ルール側と整合）
-        setRepo(u.emailVerified ? createFirestoreRepo(u.uid) : localRepo);
-        try {
-          await loadProfile(u);
-        } catch {
+        if (u.emailVerified) {
+          setRepo(createFirestoreRepo(u.uid));
+          try {
+            await loadProfile(u);
+          } catch {
+            setProfile(null);
+          }
+        } else {
+          setRepo(localRepo);
           setProfile(null);
         }
       } else {
