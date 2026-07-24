@@ -26,6 +26,7 @@ import {
 import { createFirestoreRepo, localRepo, setRepo } from "@/lib/repo";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
 import { DEFAULT_PERSONALITY, MAX_BIRTHDATE_EDITS } from "@/lib/ai-persona";
+import { hasAcceptedCurrentTerms } from "@/lib/terms";
 import type { AIPersonality, AssistLevel, UserProfile } from "@/types";
 
 /** 表示名未入力時のランダム生成（例: 思索家_k3x9pz） */
@@ -45,6 +46,8 @@ interface AuthState {
   needsVerification: boolean;
   /** ログイン済みだがプロフィール（年齢必須）が未登録 */
   needsProfile: boolean;
+  /** プロフィールあり ＆ 現行の利用規約に未合意（REL-03。既存ユーザー向けの再合意誘導用） */
+  needsTermsAccept: boolean;
   signInGoogle: () => Promise<void>;
   signUpEmail: (email: string, password: string) => Promise<void>;
   signInEmail: (email: string, password: string) => Promise<void>;
@@ -63,6 +66,11 @@ interface AuthState {
     personality?: AIPersonality;
     /** コミュニティで名前を表示するか（NF-01b）。既定 false＝匿名 */
     showNameInCommunity?: boolean;
+    /**
+     * 利用規約に合意したバージョン（REL-03）。渡すと termsAcceptedAt=now, termsVersion=this
+     * が記録される。setup 初回・利用規約再合意時に指定する
+     */
+    acceptedTermsVersion?: number;
   }) => Promise<void>;
 }
 
@@ -152,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       birthDate?: string;
       personality?: AIPersonality;
       showNameInCommunity?: boolean;
+      acceptedTermsVersion?: number;
     }) => {
       const u = firebaseAuth().currentUser;
       if (!u) throw new Error("ログインしていません");
@@ -174,6 +183,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       }
       const birthDateEdits = birthDateChanged ? prevEdits + 1 : prevEdits;
+      // 利用規約合意（REL-03）。新規合意があれば now を記録、
+      // 未指定なら既存の合意日時・バージョンを維持する
+      const termsVersion =
+        input.acceptedTermsVersion ?? profile?.termsVersion;
+      const termsAcceptedAt =
+        input.acceptedTermsVersion !== undefined
+          ? now
+          : profile?.termsAcceptedAt;
       const next: UserProfile = {
         uid: u.uid,
         email: u.email ?? "",
@@ -187,6 +204,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           input.personality ?? profile?.personality ?? DEFAULT_PERSONALITY,
         showNameInCommunity:
           input.showNameInCommunity ?? profile?.showNameInCommunity ?? false,
+        ...(termsVersion !== undefined ? { termsVersion } : {}),
+        ...(termsAcceptedAt !== undefined ? { termsAcceptedAt } : {}),
         role: profile?.role ?? "user",
         createdAt: profile?.createdAt ?? now,
         updatedAt: now,
@@ -199,6 +218,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const needsVerification = !!user && isPasswordUser(user) && !user.emailVerified;
   const needsProfile = !!user && !needsVerification && !profile;
+  const needsTermsAccept =
+    !!user && !needsVerification && !!profile && !hasAcceptedCurrentTerms(profile);
 
   return (
     <AuthContext.Provider
@@ -208,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         initializing,
         needsVerification,
         needsProfile,
+        needsTermsAccept,
         signInGoogle,
         signUpEmail,
         signInEmail,

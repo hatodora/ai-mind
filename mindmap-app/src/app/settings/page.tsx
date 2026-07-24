@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { httpsCallable } from "firebase/functions";
 import { useAuth } from "@/contexts/AuthContext";
+import { firebaseFunctions } from "@/lib/firebase";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
 import {
   DEFAULT_PERSONALITY,
@@ -51,7 +53,7 @@ const PERSONA_OPTIONS: {
  */
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, profile, initializing, needsVerification, saveProfile } =
+  const { user, profile, initializing, needsVerification, signOut, saveProfile } =
     useAuth();
 
   useEffect(() => {
@@ -68,12 +70,15 @@ export default function SettingsPage() {
   if (initializing || !user || !profile) return null;
 
   // プロフィールが読めてからフォームをマウントし、初期値は useState で確定させる
-  return <SettingsForm profile={profile} saveProfile={saveProfile} />;
+  return (
+    <SettingsForm profile={profile} saveProfile={saveProfile} signOut={signOut} />
+  );
 }
 
 function SettingsForm({
   profile,
   saveProfile,
+  signOut,
 }: {
   profile: UserProfile;
   saveProfile: (input: {
@@ -84,7 +89,9 @@ function SettingsForm({
     assistLevel?: AssistLevel;
     showNameInCommunity?: boolean;
   }) => Promise<void>;
+  signOut: () => Promise<void>;
 }) {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [birthDate, setBirthDate] = useState(profile.birthDate ?? "");
   const [personality, setPersonality] = useState<AIPersonality>(
@@ -309,8 +316,136 @@ function SettingsForm({
               {error}
             </div>
           )}
+
+          {/* 法務ページへの導線（REL-03/04） */}
+          <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-placeholder">
+            <Link href="/terms" className="hover:text-muted">
+              利用規約
+            </Link>
+            <span className="opacity-40">·</span>
+            <Link href="/privacy" className="hover:text-muted">
+              プライバシー
+            </Link>
+            <span className="opacity-40">·</span>
+            <Link href="/contact" className="hover:text-muted">
+              お問い合わせ
+            </Link>
+          </div>
+
+          {/* アカウント削除セクション（REL-02） */}
+          <DangerZone router={router} signOut={signOut} />
         </div>
       </div>
     </main>
+  );
+}
+
+/**
+ * アカウント削除セクション（REL-02）。
+ * 2段階確認: (1) 「アカウントを削除」ボタンを開く → (2) 「削除」と入力して実行。
+ * Cloud Functions で完全削除（プロフィール・マップ・投稿・コメント・Auth）。
+ */
+function DangerZone({
+  router,
+  signOut,
+}: {
+  router: ReturnType<typeof useRouter>;
+  signOut: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canDelete = confirmText === "削除" && !busy;
+
+  const handleDelete = async () => {
+    if (!canDelete) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fn = httpsCallable<Record<string, never>, { ok: boolean }>(
+        firebaseFunctions(),
+        "deleteAccount",
+      );
+      await fn({});
+      // Firestore・Auth が削除済み。onAuthStateChanged が発火する前に
+      // 明示的にサインアウトしてローカルの状態をクリアする
+      try {
+        await signOut();
+      } catch {
+        // Auth が既に消えているため失敗する可能性があるが、遷移は続行
+      }
+      router.replace("/");
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "アカウントの削除に失敗しました。時間をおいて再度お試しください",
+      );
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-10 rounded-[12px] border border-danger/30 bg-tint-danger/40 p-5">
+      <h2 className="mb-1.5 font-display text-[15px] font-bold text-danger">
+        アカウントの削除
+      </h2>
+      <p className="text-[12px] leading-[1.8] text-muted">
+        アカウントを削除すると、プロフィール・マインドマップ・コミュニティ投稿・コメント・ブックマークがすべて完全に削除され、復元できません。
+      </p>
+
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="btn-lift mt-4 rounded-full border border-danger/40 bg-page px-4 py-2 text-[12px] font-bold text-danger hover:bg-tint-danger"
+        >
+          アカウントを削除する
+        </button>
+      ) : (
+        <div className="mt-4">
+          <label className="mb-1.5 block text-[12px] font-bold text-danger">
+            確認のため
+            <span className="mx-1 font-display">「削除」</span>
+            と入力してください
+          </label>
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder="削除"
+            className="w-full rounded-[10px] border border-danger/40 bg-page px-4 py-2.5 text-[14px] text-ink outline-none placeholder:text-placeholder focus:border-danger focus:ring-2 focus:ring-danger/30"
+          />
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={!canDelete}
+              className="btn-lift rounded-full bg-danger px-5 py-2 text-[13px] font-bold text-white disabled:opacity-40"
+            >
+              {busy ? "削除中…" : "完全に削除する"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setConfirmText("");
+                setError(null);
+              }}
+              disabled={busy}
+              className="btn-lift rounded-full border border-line bg-card px-4 py-2 text-[13px] text-muted"
+            >
+              キャンセル
+            </button>
+          </div>
+          {error && (
+            <div className="mt-3 rounded-[10px] bg-tint-danger px-3 py-2 text-[12px] text-danger">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

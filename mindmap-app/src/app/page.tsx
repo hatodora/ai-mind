@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRepo, purgeExpiredAnonMaps, createFirestoreRepo } from "@/lib/repo";
@@ -131,10 +132,19 @@ function ThinkRing({
 }
 
 export default function HomePage() {
-  const { user, profile, initializing, needsProfile, signOut } = useAuth();
+  const router = useRouter();
+  const { user, profile, initializing, needsProfile, needsTermsAccept, signOut } =
+    useAuth();
   const [maps, setMaps] = useState<MindMap[]>([]);
   const [localCount, setLocalCount] = useState(0);
   const [migrating, setMigrating] = useState(false);
+
+  // 規約バージョンが上がった既存ユーザーを再合意画面へ誘導する（REL-03）
+  useEffect(() => {
+    if (!initializing && needsTermsAccept) {
+      router.replace("/terms/accept?next=%2F");
+    }
+  }, [initializing, needsTermsAccept, router]);
 
   const loggedIn = !!user && user.emailVerified !== false && !!profile;
 
@@ -432,6 +442,21 @@ export default function HomePage() {
             </ul>
           )}
         </div>
+
+        {/* フッター: 法務ページへの導線（REL-03/04） */}
+        <footer className="mt-16 flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-[11px] text-placeholder">
+          <Link href="/terms" className="hover:text-muted">
+            利用規約
+          </Link>
+          <span className="opacity-40">·</span>
+          <Link href="/privacy" className="hover:text-muted">
+            プライバシー
+          </Link>
+          <span className="opacity-40">·</span>
+          <Link href="/contact" className="hover:text-muted">
+            お問い合わせ
+          </Link>
+        </footer>
       </div>
     </main>
   );

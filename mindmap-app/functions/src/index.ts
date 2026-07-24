@@ -11,7 +11,14 @@
 import { onCall, HttpsError, type CallableRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+import {
+  getFirestore,
+  FieldPath as AdminFieldPath,
+  FieldValue,
+  type DocumentReference,
+  type WriteBatch,
+} from "firebase-admin/firestore";
 import { createHash, randomUUID } from "node:crypto";
 import Groq from "groq-sdk";
 
@@ -381,6 +388,143 @@ export const acceptMapInvite = onCall(
       });
     });
     return { mapId };
+  },
+);
+
+// ---------- deleteAccount（REL-02）----------
+// 退会時に本人のデータを完全に削除する（＝匿名化しない）。
+// クライアントから直接消せないもの（他人の投稿へ書いた自コメント・
+// 共有マップからの離脱・Firestore サブコレクション一括削除・Auth 削除）を
+// Admin SDK でまとめて処理する。
+//
+// 削除対象:
+//   1. 所有マップ maps/*  ownerId == uid
+//   2. 共有マップ maps/*  sharedWith.{uid} を消し、visibility は所有者の設定を維持
+//   3. 自投稿 posts/* + その配下 comments/*
+//   4. 他人投稿にした自コメント posts/*/comments/* authorUid == uid
+//      （投稿本体の commentCount を投稿単位でまとめて減算）
+//   5. users/{uid}/bookmarks/* / private/* サブコレクション
+//   6. users/{uid} 本体
+//   7. Firebase Auth ユーザー本体（=次回以降ログイン不可）
+
+/** Firestore の batch は1回500操作までなので分割して commit する */
+const BATCH_LIMIT = 400;
+
+/**
+ * バッチを回すヘルパ。cb で最大 BATCH_LIMIT 件までの操作を積み、
+ * その都度 commit する。ops は「呼び出す」だけで、順序保証は不要な削除向け。
+ */
+async function runBatched(
+  ops: Array<(batch: WriteBatch) => void>,
+): Promise<void> {
+  for (let i = 0; i < ops.length; i += BATCH_LIMIT) {
+    const batch = db.batch();
+    for (const op of ops.slice(i, i + BATCH_LIMIT)) op(batch);
+    await batch.commit();
+  }
+}
+
+async function deleteSubcollection(parent: DocumentReference): Promise<void> {
+  const snap = await parent.listCollections();
+  for (const col of snap) {
+    const docs = await col.listDocuments();
+    await runBatched(docs.map((ref) => (b: WriteBatch) => b.delete(ref)));
+  }
+}
+
+export const deleteAccount = onCall(
+  { region: REGION },
+  async (request) => {
+    const uid = requireVerifiedUser(request);
+
+    // 1〜4 に必要な参照をまとめて取得（並列）。件数上限は Firestore の1クエリ制限
+    // （通常10K件程度）に依存するが、通常ユーザーの規模ではまず超えない。
+    const [ownMapsSnap, sharedMapsSnap, ownPostsSnap, myCommentsSnap] =
+      await Promise.all([
+        db.collection("maps").where("ownerId", "==", uid).get(),
+        db
+          .collection("maps")
+          .where(new AdminFieldPath("sharedWith", uid), "in", [
+            "viewer",
+            "editor",
+          ])
+          .get(),
+        db.collection("posts").where("authorUid", "==", uid).get(),
+        db
+          .collectionGroup("comments")
+          .where("authorUid", "==", uid)
+          .get(),
+      ]);
+
+    const ownPostIds = new Set(ownPostsSnap.docs.map((d) => d.id));
+
+    // ---- 1. 所有マップの削除 ----
+    await runBatched(ownMapsSnap.docs.map((d) => (b) => b.delete(d.ref)));
+
+    // ---- 2. 共有マップからの離脱（所有者ではないので消さない） ----
+    // sharedWith.{uid} と collaboratorNames.{uid} をピンポイントで削除
+    await runBatched(
+      sharedMapsSnap.docs
+        // 所有マップと重複した場合は 1. で既に消えている
+        .filter((d) => d.data().ownerId !== uid)
+        .map((d) => (b) =>
+          b.update(d.ref, {
+            [`sharedWith.${uid}`]: FieldValue.delete(),
+            [`collaboratorNames.${uid}`]: FieldValue.delete(),
+          }),
+        ),
+    );
+
+    // ---- 3. 自投稿の削除（配下コメントも含む） ----
+    for (const postDoc of ownPostsSnap.docs) {
+      const commentDocs = await postDoc.ref
+        .collection("comments")
+        .listDocuments();
+      await runBatched(commentDocs.map((ref) => (b) => b.delete(ref)));
+      await postDoc.ref.delete();
+    }
+
+    // ---- 4. 他人投稿への自コメントを削除 ＋ 投稿の commentCount を減算 ----
+    // 自投稿に付けた自コメントは 3. で既に削除済みなので除外する
+    const externalComments = myCommentsSnap.docs.filter((d) => {
+      const parentPost = d.ref.parent.parent;
+      return parentPost !== null && !ownPostIds.has(parentPost.id);
+    });
+    // 投稿ごとに何件消すかを集計してから減算する（1投稿に複数の自コメントがあり得る）
+    const decrementByPost = new Map<string, number>();
+    for (const d of externalComments) {
+      const postId = d.ref.parent.parent!.id;
+      decrementByPost.set(postId, (decrementByPost.get(postId) ?? 0) + 1);
+    }
+    await runBatched(externalComments.map((d) => (b) => b.delete(d.ref)));
+    await runBatched(
+      Array.from(decrementByPost.entries()).map(
+        ([postId, n]) =>
+          (b) =>
+            b.update(db.doc(`posts/${postId}`), {
+              commentCount: FieldValue.increment(-n),
+            }),
+      ),
+    );
+
+    // ---- 5. users/{uid} サブコレクション（bookmarks / private / …）を削除 ----
+    const userRef = db.doc(`users/${uid}`);
+    await deleteSubcollection(userRef);
+
+    // ---- 6. users/{uid} 本体を削除 ----
+    await userRef.delete();
+
+    // ---- 7. Firebase Auth ユーザーを削除（=以降ログイン不可） ----
+    // Firestore 側を先に消しておくと、Auth 削除だけ失敗しても再実行で完了できる
+    try {
+      await getAuth().deleteUser(uid);
+    } catch (e) {
+      // 既に削除済みなどのケースはエラーにしない
+      const code = (e as { code?: string }).code;
+      if (code !== "auth/user-not-found") throw e;
+    }
+
+    return { ok: true };
   },
 );
 

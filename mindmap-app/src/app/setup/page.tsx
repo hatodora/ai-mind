@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth, randomDisplayName } from "@/contexts/AuthContext";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
 import { ageFromBirthDate } from "@/lib/ai-persona";
+import { TERMS_VERSION } from "@/lib/terms";
 import { BirthDatePicker } from "@/components/BirthDatePicker";
 import type { AssistLevel } from "@/types";
 
@@ -31,6 +33,7 @@ export default function SetupPage() {
   const [birthDate, setBirthDate] = useState("");
   const [assistLevel, setAssistLevel] =
     useState<AssistLevel>(DEFAULT_ASSIST_LEVEL);
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placeholder] = useState(randomDisplayName);
@@ -51,8 +54,10 @@ export default function SetupPage() {
   const ageValid =
     derivedAge !== null && derivedAge >= 5 && derivedAge <= 120;
 
+  const canSubmit = ageValid && agreed && !busy;
+
   const handleSubmit = async () => {
-    if (!ageValid || busy) return;
+    if (!canSubmit) return;
     setBusy(true);
     setError(null);
     try {
@@ -61,6 +66,7 @@ export default function SetupPage() {
         age: derivedAge,
         birthDate,
         assistLevel,
+        acceptedTermsVersion: TERMS_VERSION,
       });
       router.replace("/");
     } catch (e) {
@@ -168,10 +174,38 @@ export default function SetupPage() {
             })}
           </div>
 
+          {/* 利用規約・プライバシーポリシーへの合意（REL-03） */}
+          <label className="mt-8 flex cursor-pointer items-start gap-3 rounded-[12px] border border-line bg-card p-4">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-current text-accent"
+            />
+            <span className="text-[12.5px] leading-[1.8] text-muted">
+              <Link
+                href="/terms"
+                target="_blank"
+                className="text-accent-soft underline underline-offset-4 hover:no-underline"
+              >
+                利用規約
+              </Link>
+              および
+              <Link
+                href="/privacy"
+                target="_blank"
+                className="mx-1 text-accent-soft underline underline-offset-4 hover:no-underline"
+              >
+                プライバシーポリシー
+              </Link>
+              に同意します
+            </span>
+          </label>
+
           <button
             onClick={handleSubmit}
-            disabled={!ageValid || busy}
-            className="btn-lift btn-primary mt-8 w-full py-4 text-[15px] disabled:opacity-40"
+            disabled={!canSubmit}
+            className="btn-lift btn-primary mt-4 w-full py-4 text-[15px] disabled:opacity-40"
           >
             {busy ? "保存中…" : "はじめる"}
           </button>

@@ -106,6 +106,13 @@ export interface UserProfile {
   personality?: AIPersonality;
   /** コミュニティで投稿・コメントに名前を表示するか（NF-01b）。既定 false＝匿名 */
   showNameInCommunity?: boolean;
+  /**
+   * 現在合意済みの利用規約バージョン（REL-03）。TERMS_VERSION と比較して
+   * 再合意の要否を判定する。旧プロフィールには無いので undefined あり
+   */
+  termsVersion?: number;
+  /** 利用規約に合意した日時（REL-03） */
+  termsAcceptedAt?: number;
   role: "user" | "admin";
   createdAt: number;
   updatedAt: number;
