@@ -1,5 +1,14 @@
 {
+  "name": "ai-mindmap-root",
+  "private": true,
+  "scripts": {
+    "dev": "cd mindmap-app && npm run dev",
+    "build": "cd mindmap-app && npm install && npm run build",
+    "start": "cd mindmap-app && npm run start",
+    "lint": "cd mindmap-app && npm run lint"
+  },
   "devDependencies": {
     "@notionhq/client": "^5.23.2"
   }
 }
+

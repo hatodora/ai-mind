@@ -12,7 +12,7 @@
 
 | フェーズ | 状態 | 完了数 | 合計 | 進捗率 |
 |---------|------|--------|------|--------|
-| **Phase A** | In Progress | 1/6 | 6 | 17% |
+| **Phase A** | In Progress | 2/6 | 6 | 33% |
 | **Phase B** | To Do | 0/2 | 2 | 0% |
 | **Phase C** | To Do | 0/3 | 3 | 0% |
 | **Phase D** | On Hold | 0/∞ | - | - |
@@ -38,14 +38,18 @@
 - **Known Gaps**: None
 - **Notes**: うるう年の自動クランプ・既存誕生日の消去禁止も実装済み
 
-### REL-02: アカウント削除機能
-- **Status**: To Do
-- **Due Date**: TBD
-- **Assigned To**: You
-- **Scope**: ユーザーが退会時に Auth + profile + bookmarks + maps/posts/comments を削除
+### REL-02: アカウント削除機能 ✅ COMPLETED
+- **Status**: Completed
+- **Due Date**: 2026-07-24
+- **Assigned To**: Claude
+- **Scope**: ユーザーが退会時に Auth + profile + bookmarks + maps/posts/comments を完全削除
 - **Ambition**: Medium
-- **Known Gaps**: 投稿の削除方針（完全削除 vs 匿名化）未決定
-- **Notes**: 個人情報保護法対応のため実質必須
+- **Implementation**:
+  - Cloud Function `deleteAccount`（asia-northeast1）で所有マップ・共有マップからの離脱・自投稿+コメント・他人投稿への自コメント（commentCount 減算含む）・bookmarks/private サブコレ・users/{uid}・Auth ユーザーを一括削除
+  - 設定画面下部に「アカウント削除」セクション（2段階確認：ボタン開閉→「削除」入力）
+  - **合わせて REL-03 の一部実装**: `/terms`, `/privacy`, `/contact` ページ、TERMS_VERSION による再合意フロー、setup ページの合意チェックボックス、Firestore rules に inquiries コレクション追加
+- **Known Gaps**: None（投稿は完全削除で確定）
+- **Notes**: 削除方針は「完全削除」で確定（コメントも残さず消す）
 
 ### REL-03〜05: ポータルサイト（統合実装・別リポジトリ）
 - **Status**: Spec Ready（実装待ち）
