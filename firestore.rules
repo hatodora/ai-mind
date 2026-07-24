@@ -38,6 +38,7 @@ service cloud.firestore {
         return d.keys().hasOnly(
             ['uid', 'email', 'displayName', 'age', 'birthDate', 'birthDateEdits',
              'photoURL', 'assistLevel', 'personality', 'showNameInCommunity',
+             'termsVersion', 'termsAcceptedAt',
              'role', 'createdAt', 'updatedAt'])
           && d.uid == uid
           // email は認証トークンと一致するもののみ（他人のアドレスを保存できない）
@@ -59,6 +60,10 @@ service cloud.firestore {
           && (!('personality' in d)
               || d.personality in ['advisor', 'boss', 'analyst'])
           && (!('showNameInCommunity' in d) || d.showNameInCommunity is bool)
+          // 合意した利用規約バージョン（REL-03）。1 以上の整数のみ
+          && (!('termsVersion' in d)
+              || (d.termsVersion is int && d.termsVersion >= 1))
+          && (!('termsAcceptedAt' in d) || d.termsAcceptedAt is number)
           && d.createdAt is number && d.updatedAt is number;
       }
       // 一般ユーザーは自分を admin に昇格できない
@@ -268,6 +273,30 @@ service cloud.firestore {
                   || get(/databases/$(database)/documents/posts/$(postId))
                        .data.authorUid == request.auth.uid));
       }
+    }
+
+    // ---------- inquiries: お問い合わせ（REL-04） ----------
+    // 作成はログインユーザーのみ。閲覧・更新・削除は管理者専用。
+    // 「メール未確認」でも送信できるようにするため isSignedIn() を使う
+    // （アカウント削除・誕生日変更依頼など、規約合意前のケースも受け付ける）
+    match /inquiries/{id} {
+      function validInquiry() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(
+            ['id', 'category', 'email', 'message', 'submittedByUid',
+             'status', 'createdAt', 'updatedAt'])
+          && d.id == id
+          && d.category in ['bug', 'deletion', 'birthdate', 'account', 'other']
+          && d.email is string && d.email.size() >= 3 && d.email.size() <= 320
+          && d.message is string
+          && d.message.size() >= 1 && d.message.size() <= 4000
+          && d.submittedByUid == request.auth.uid
+          && d.status == 'new'
+          && d.createdAt is number
+          && d.updatedAt is number;
+      }
+      allow get, list, update, delete: if isAdmin();
+      allow create: if isSignedIn() && validInquiry();
     }
 
     // ---------- invites: 共同編集の招待（NF-01a・Cloud Functions 専用） ----------
