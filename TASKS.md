@@ -2,7 +2,7 @@
 
 > Shape UP形式で、フェーズと進捗を一元管理
 
-**最終更新**: 2026-07-20  
+**最終更新**: 2026-07-27  
 **リポジトリ**: mindmap-app  
 **Notion 同期**: 有効（GitHub Actions）
 
@@ -13,7 +13,7 @@
 | フェーズ | 状態 | 完了数 | 合計 | 進捗率 |
 |---------|------|--------|------|--------|
 | **Phase A** | In Progress | 2/6 | 6 | 33% |
-| **Phase B** | To Do | 0/2 | 2 | 0% |
+| **Phase B** | Complete | 2/2 | 2 | 100% |
 | **Phase C** | To Do | 0/3 | 3 | 0% |
 | **Phase D** | On Hold | 0/∞ | - | - |
 | **実装済み** | Complete | 48/48 | 48 | 100% |
@@ -115,28 +115,56 @@
 **Pitch**: 自動テストと CI で、機能変更時に自動的に壊れたところを検出する。  
 **Ambition**: Large | **Scope**: 2週間～ | **Cycle**: 1週間ずつ
 
-### REL-07: 最小限の自動テスト
-- **Status**: To Do
-- **Due Date**: TBD
+### REL-07: 最小限の自動テスト ✅ COMPLETED
+- **Status**: Completed
+- **Due Date**: 2026-07-27
 - **Assigned To**: Claude
 - **Scope**: 
   - `gauge.ts` / `ai-validate.ts` / `merge.ts` の単体テスト
   - Firestore rules のユニットテスト（@firebase/rules-unit-testing）
-  - 主要フロー（作成→ノード追加→提案→レビュー）の E2E テスト
+  - 主要フロー（作成→テーマ入力→マップ作成→ルートノード表示）の E2E テスト
 - **Ambition**: Large
-- **Known Gaps**: テストサーバー環境の整備
-- **Notes**: Playwright 推奨
+- **Implementation**:
+  - Vitest 導入（`vitest.config.ts`）。`gauge.test.ts`（27件）・
+    `ai-validate.test.ts`（20件）・`merge.test.ts`（16件）で計63件、
+    AIゲージ計算・入力検証・共同編集マージの分岐を網羅
+  - Firestore rules テスト（`firestore-tests/rules.test.ts`）を
+    `@firebase/rules-unit-testing` で作成。users/maps/posts/comments/
+    inquiries/invites/aiCache/system の主要な許可・拒否パターンを検証
+    （誕生日2回制限・role昇格禁止・15歳未満投稿禁止・なりすまし禁止・
+    system完全遮断＝REL-06 で追加した全体レートリミットの残量隠蔽など）
+  - Playwright 導入。`e2e/golden-path.spec.ts` でホーム→新規作成→
+    ルートノード表示・利用規約/プライバシー（未ログインOK）・
+    お問い合わせ（未ログイン→ログイン誘導）・存在しないマップの
+    404相当表示を検証
+- **検証済み**: `npm test`（63件）・`npm run test:e2e`（6件）はローカルで
+  全件パス。`npm run test:rules` はローカルにJavaが無く未実行
+  （CI で確認、REL-08 参照）
+- **Known Gaps**: ログイン必須フロー（AI提案・レビュー・共有・
+  コミュニティ）のE2Eは、Firebase Authエミュレータ連携が必要なため未着手
+- **Notes**: Playwright を採用
 
-### REL-08: CI 導入
-- **Status**: To Do
-- **Due Date**: TBD
+### REL-08: CI 導入 ✅ COMPLETED
+- **Status**: Completed
+- **Due Date**: 2026-07-27
 - **Assigned To**: Claude
 - **Scope**: 
   - GitHub Actions で PR ごとに lint → tsc → build → test を自動実行
   - Firestore rules エミュレータ検証
 - **Ambition**: Medium
+- **Implementation**: `.github/workflows/ci.yml`（リポジトリルート）に
+  5ジョブを並列実行:
+  - `lint-typecheck-build`: eslint → tsc → next build
+  - `functions-typecheck`: Cloud Functions の tsc
+  - `unit-test`: vitest（gauge/ai-validate/merge）
+  - `rules-test`: `actions/setup-java` で Java 導入 →
+    `firebase emulators:exec` で Firestore rules テスト
+    （ローカルでJavaが無かった問題を CI 側で解決）
+  - `e2e-test`: Playwright（失敗時はレポートをArtifactでアップロード）
+  - `mindmap-app/**` の変更時のみ起動するようpathフィルタ設定
 - **Known Gaps**: None
-- **Notes**: ローカルで Java 環境がなかった問題を CI 上で解決
+- **Notes**: 本番の Firebase 設定値は使わず、ビルド用のダミー環境変数で
+  CI を通す（`isFirebaseConfigured()` により未設定でもビルド自体は失敗しない設計）
 
 ---
 

@@ -49,3 +49,9 @@ functions/lib/
 
 # local config
 .claude/
+
+# testing (REL-07)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
