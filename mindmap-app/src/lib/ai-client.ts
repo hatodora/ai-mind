@@ -4,6 +4,7 @@ import {
   firebaseFunctions,
   isFirebaseConfigured,
 } from "./firebase";
+import { track } from "./analytics";
 
 /**
  * AI呼び出しの入り口を一本化する。
@@ -59,6 +60,21 @@ interface PersonaOptions {
   personality?: string;
 }
 
+/**
+ * 計測（REL-10）。成功した呼び出しだけを数える
+ * （失敗まで数えると「AI利用数」がコストと噛み合わなくなるため）。
+ * 送るのは種別と設定値だけで、テーマ・ノード本文は一切含めない。
+ */
+function trackAiUse(
+  event: "ai_suggest_used" | "ai_explain_used" | "ai_review_used",
+  persona: PersonaOptions,
+): void {
+  void track(event, {
+    age_band: persona.ageBand,
+    personality: persona.personality,
+  });
+}
+
 export async function aiSuggest(
   payload: {
     theme: string;
@@ -66,9 +82,11 @@ export async function aiSuggest(
     contextNodes: { id: string; label: string; role: string }[];
   } & PersonaOptions,
 ): Promise<{ suggestions: string[] }> {
-  return shouldUseFunctions()
-    ? callFunction("aiSuggest", payload)
-    : callRoute("/api/ai/suggest", payload);
+  const result = await (shouldUseFunctions()
+    ? callFunction<{ suggestions: string[] }>("aiSuggest", payload)
+    : callRoute<{ suggestions: string[] }>("/api/ai/suggest", payload));
+  trackAiUse("ai_suggest_used", payload);
+  return result;
 }
 
 export async function aiExplain(
@@ -77,9 +95,11 @@ export async function aiExplain(
     theme: string;
   } & PersonaOptions,
 ): Promise<{ explanation: string }> {
-  return shouldUseFunctions()
-    ? callFunction("aiExplain", payload)
-    : callRoute("/api/ai/explain", payload);
+  const result = await (shouldUseFunctions()
+    ? callFunction<{ explanation: string }>("aiExplain", payload)
+    : callRoute<{ explanation: string }>("/api/ai/explain", payload));
+  trackAiUse("ai_explain_used", payload);
+  return result;
 }
 
 export async function aiReview(
@@ -93,7 +113,14 @@ export async function aiReview(
   /** マップ全体のトピック分類（NF-05）。パース失敗時は無い */
   categories?: { name: string; nodes: string[] }[];
 }> {
-  return shouldUseFunctions()
-    ? callFunction("aiReview", payload)
-    : callRoute("/api/ai/review", payload);
+  type ReviewResult = {
+    review: string;
+    usedNodeLabels?: string[];
+    categories?: { name: string; nodes: string[] }[];
+  };
+  const result = await (shouldUseFunctions()
+    ? callFunction<ReviewResult>("aiReview", payload)
+    : callRoute<ReviewResult>("/api/ai/review", payload));
+  trackAiUse("ai_review_used", payload);
+  return result;
 }

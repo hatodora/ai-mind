@@ -9,6 +9,7 @@ import {
   AI_REQUEST_COST,
   HELPER_STALL_SECONDS,
   UNLOCK_THRESHOLD,
+  aiUsageRatio,
   bulkPenalty,
   bulkPenaltyNodes,
   countUserNodes,
@@ -18,6 +19,7 @@ import {
   isUnlocked,
   nodesUntilNextTurn,
 } from "@/lib/gauge";
+import { roundRatio, track } from "@/lib/analytics";
 import {
   DEFAULT_PERSONALITY,
   ageBandFromProfile,
@@ -331,6 +333,13 @@ export function ControlPanel() {
       noteAIRequest();
       setAISuggestions(suggestions);
       setTurn("ai");
+      // お助け機能（NF-04改）がどれだけ効いているかを見る（REL-10）
+      if (free) {
+        void track("helper_used", {
+          node_count: map.nodes.length,
+          ai_ratio: roundRatio(aiUsageRatio(map.nodes)),
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {

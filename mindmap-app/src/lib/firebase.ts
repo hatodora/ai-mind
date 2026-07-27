@@ -21,6 +21,8 @@ const config = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  // 利用状況モニタリング（REL-10）。未設定なら計測は行われない
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 export function isFirebaseConfigured(): boolean {
@@ -102,4 +104,19 @@ export function firebaseDb(): Firestore {
 export function firebaseFunctions(): Functions {
   // Cloud Functions のリージョンは asia-northeast1（東京）に統一
   return getFunctions(getApp(), "asia-northeast1");
+}
+
+/** 計測（REL-10）が設定されているか。measurementId が無ければ計測しない */
+export function isAnalyticsConfigured(): boolean {
+  return Boolean(config.measurementId && isFirebaseConfigured());
+}
+
+/** 計測用に Firebase App を取得する。未設定なら null（呼び出し側で握りつぶす） */
+export function firebaseAppForAnalytics(): FirebaseApp | null {
+  if (!isAnalyticsConfigured()) return null;
+  try {
+    return getApp();
+  } catch {
+    return null;
+  }
 }

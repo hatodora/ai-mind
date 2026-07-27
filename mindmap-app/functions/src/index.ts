@@ -21,6 +21,7 @@ import {
 } from "firebase-admin/firestore";
 import { createHash, randomUUID } from "node:crypto";
 import Groq from "groq-sdk";
+import { reportError, reportEvent } from "./observability";
 
 initializeApp();
 const db = getFirestore();
@@ -101,6 +102,12 @@ async function enforceGlobalDailyCap(now: number): Promise<void> {
   const sameDay = data.dayKey === today;
   const count = sameDay ? ((data.count as number) ?? 0) : 0;
   if (count >= GLOBAL_DAILY_LIMIT) {
+    // ここに来た＝全利用者のAIが止まっている。運営が気づけるよう必ず通知する（REL-09）
+    await reportEvent("AI全体の日次上限に達しました（全利用者のAIが停止中）", {
+      fn: "enforceGlobalDailyCap",
+      level: "error",
+      extra: { dayKey: today, count, limit: GLOBAL_DAILY_LIMIT },
+    });
     throw new HttpsError(
       "resource-exhausted",
       "本日のAI利用が全体の上限に達しました。時間をおいてお試しください",
@@ -195,13 +202,36 @@ async function withCache(
 
 // ---------- Groq 呼び出し ----------
 
+/**
+ * Groq への実呼び出し。全AI機能がここを通るので、
+ * 失敗はここでまとめて記録する（REL-09）。
+ * APIキー失効・Groq障害・モデル廃止はいずれも全機能停止に直結するため、
+ * 利用者向けには汎用メッセージを返しつつ、原因は必ず手元に残す。
+ *
+ * prompt には利用者の思考内容が含まれるので Sentry へは渡さない。
+ */
 async function generate(prompt: string): Promise<string> {
   const client = new Groq({ apiKey: GROQ_API_KEY.value() });
-  const completion = await client.chat.completions.create({
-    model: MODEL_NAME,
-    messages: [{ role: "user", content: prompt }],
-  });
-  return (completion.choices[0]?.message?.content ?? "").trim();
+  try {
+    const completion = await client.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return (completion.choices[0]?.message?.content ?? "").trim();
+  } catch (e) {
+    await reportError(e, {
+      fn: "generate",
+      extra: {
+        model: MODEL_NAME,
+        status: (e as { status?: number }).status,
+        promptLength: prompt.length,
+      },
+    });
+    throw new HttpsError(
+      "unavailable",
+      "AIとの通信に失敗しました。少し時間をおいてお試しください",
+    );
+  }
 }
 
 // ---------- 入力検証ヘルパー ----------

@@ -16,11 +16,13 @@ import {
   DEFAULT_ASSIST_LEVEL,
   INITIAL_GRANT,
   UNLOCK_THRESHOLD,
+  aiUsageRatio,
   countUserNodes,
   effectiveLevel,
   isUnlocked,
   recoveryPerNode,
 } from "@/lib/gauge";
+import { roundRatio, track } from "@/lib/analytics";
 
 interface State {
   map: MindMap | null;
@@ -184,6 +186,8 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
     resetDirty();
     saveAsync(map);
     set({ map, selectedNodeId: rootId, highlightedNodeIds: [] });
+    // 計測（REL-10）。テーマ本文は送らず、設定値だけを記録する
+    void track("map_created", { assist_level: level });
     return map;
   },
 
@@ -401,6 +405,12 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
     markMeta();
     set({ map: updated });
     saveAsync(updated);
+    // 計測（REL-10）。完成率とAI依存度の傾向を見るための件数・割合のみ
+    void track("map_completed", {
+      node_count: updated.nodes.length,
+      ai_ratio: roundRatio(aiUsageRatio(updated.nodes)),
+      assist_level: updated.assistLevel ?? DEFAULT_ASSIST_LEVEL,
+    });
   },
 
   setHighlightedNodes: (ids) => set({ highlightedNodeIds: ids }),

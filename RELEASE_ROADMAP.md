@@ -12,22 +12,31 @@
 
 ---
 
-## 0. 現状スナップショット（2026-07-18 時点）
+## 0. 現状スナップショット（2026-07-28 更新）
+
+> Phase A の大半・Phase B・Phase C の実装が完了。
+> 残るのは**外部サービス側のアカウント作業**（下表の「要設定」）と
+> ポータル/管理ダッシュボード（REL-03〜05）。
 
 | 項目 | 状態 |
 |------|------|
 | 機能実装 | Phase 1〜5（NF-01〜05・UP-01〜07・SEC-01〜08）完了 |
-| Firestore rules / Functions | **コード変更済み・未デプロイ**（SEC-01 修正・NF-05 プロンプト変更を含む） |
-| 本番ホスティング | **未設定**（firebase.json に hosting 定義なし、Vercel 連携もこれから） |
-| Firebase プロジェクト | 単一（ai-mindmap-app）。dev/prod 分離なし |
-| テスト | **自動テストなし**（lint・tsc・手動ブラウザ検証のみ） |
-| CI/CD | **なし**（GitHub Actions 等未設定） |
-| 監視・エラートラッキング | **なし**（console.error のみ、収集先なし） |
-| 予算アラート | **なし**（Groq/Firebase の使用量超過に気づく手段がない） |
-| App Check | **無効**（`enforceAppCheck: false`。Bot・キー盗用対策なし） |
-| 法務ドキュメント | **なし**（利用規約・プライバシーポリシーが存在しない） |
-| アカウント削除機能 | **なし**（SEC-06 で既知ギャップとして記録済み） |
-| サポート導線 | **なし**（問い合わせ・不具合報告の窓口がない） |
+| Firestore rules / Functions | コード変更済み。**デプロイは本番公開前に実施**（DEPLOY.md のチェックリスト） |
+| 本番ホスティング | **Vercel（本番）＋ Netlify（予備）** の設定を用意済み。Vercel の Root Directory 設定が要 |
+| Firebase プロジェクト | 単一（ai-mindmap-app）。dev/prod 分離は見送り（チェックリストで代替） |
+| テスト | ✅ Vitest 75件・Firestore rules テスト・Playwright E2E 6件（REL-07） |
+| CI/CD | ✅ GitHub Actions 5ジョブ（lint/tsc/build・functions tsc・単体・rules・E2E）（REL-08） |
+| 監視・エラートラッキング | ✅ Sentry 実装済み（REL-09）。**DSN 設定で有効化**（要設定） |
+| 利用状況モニタリング | ✅ Firebase Analytics 実装済み（REL-10）。**measurementId 設定で有効化**（要設定） |
+| 予算アラート | ⬜ **要設定**（GCP・Groq のコンソール作業。SECURITY_PRODUCTION.md） |
+| App Check | ✅ 実装済み（REL-06）。**reCAPTCHA キー設定で有効化**（要設定） |
+| レートリミット | ✅ 日次上限＋全体サーキットブレーカー（REL-06）。既定で有効 |
+| 未認証 AI 経路 | ✅ 本番では既定で遮断（REL-06） |
+| 法務ドキュメント | ✅ 利用規約・プライバシーポリシー（REL-03）。TERMS_VERSION=2 |
+| アカウント削除機能 | ✅ 実装済み（REL-02。完全削除） |
+| サポート導線 | ✅ お問い合わせフォーム（REL-04） |
+| 障害対応手順 | ✅ [DEPLOY.md](DEPLOY.md)（REL-11） |
+| ポータル・管理画面 | ⬜ 未着手（REL-03〜05。別リポジトリ・PORTAL_ADMIN_SPEC.md） |
 
 ---
 

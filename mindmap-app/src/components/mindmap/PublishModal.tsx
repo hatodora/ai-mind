@@ -12,6 +12,7 @@ import {
   publishPost,
 } from "@/lib/community";
 import { PostMapView } from "@/components/community/PostMapView";
+import { track } from "@/lib/analytics";
 
 /**
  * コミュニティへの公開モーダル（NF-01b）。
@@ -44,6 +45,8 @@ export function PublishModal({
     setError(null);
     try {
       setPostId(await publishPost(map, rootNodeId, profile, { title, body }));
+      // 計測（REL-10）。投稿本文は送らず、規模だけを記録する
+      void track("community_post_created", { node_count: subtree.nodes.length });
     } catch (e) {
       console.error("投稿に失敗しました", e);
       setError("投稿できませんでした。通信環境を確認してください");

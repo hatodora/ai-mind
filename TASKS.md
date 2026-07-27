@@ -14,7 +14,7 @@
 |---------|------|--------|------|--------|
 | **Phase A** | In Progress | 2/6 | 6 | 33% |
 | **Phase B** | Complete | 2/2 | 2 | 100% |
-| **Phase C** | To Do | 0/3 | 3 | 0% |
+| **Phase C** | Complete | 3/3 | 3 | 100% |
 | **Phase D** | On Hold | 0/∞ | - | - |
 | **実装済み** | Complete | 48/48 | 48 | 100% |
 
@@ -173,35 +173,82 @@
 **Pitch**: 本番環境で問題が起きたときに、気づいて対応できる体制を作る。  
 **Ambition**: Large | **Scope**: 1週間～ | **最後に完了したら一般公開可**
 
-### REL-09: エラートラッキング
-- **Status**: To Do
-- **Due Date**: TBD
-- **Assigned To**: Claude
-- **Scope**: Sentry 等を導入し、クライアント・API Routes・Functions の例外を収集
+### REL-09: エラートラッキング 🟡 実装完了・DSN設定待ち
+- **Status**: Code Ready（Sentry アカウント作業待ち）
+- **Due Date**: 2026-07-28（実装分）
+- **Assigned To**: Claude（実装）/ You（Sentry 登録）
+- **Scope**: Sentry を導入し、クライアント・サーバー・Functions の例外を収集
 - **Ambition**: Medium
-- **Known Gaps**: Sentry アカウント設定
-- **Notes**: 本番でのインシデント対応に必須
+- **Implementation**（REL-06 と同じ「既定は完全無効」）:
+  - `src/lib/observability.ts` — DSN 未設定なら SDK を読み込まない。
+    環境名・リリースは Vercel / Netlify の環境変数から自動判別
+  - `src/instrumentation.ts` — サーバー例外（`onRequestError`）
+  - `src/instrumentation-client.ts` — クライアント例外
+  - `src/app/global-error.tsx` — ルートレイアウトごと落ちたときの復帰画面
+    （Next.js 16 では `reset` ではなく `unstable_retry` を受け取る）
+  - `functions/src/observability.ts` — Cloud Functions 側。動的 import で
+    無効時のコールドスタート影響をゼロにし、送信後は必ず flush
+  - **REL-06 の全体サーキットブレーカー到達を error レベルで通知**
+    （＝全利用者のAIが止まった状態を検知できる）
+  - Groq 呼び出しの失敗を `generate()` で一括捕捉
+- **プライバシー設計**（重要）:
+  - `scrubEvent()` でリクエストボディ・Cookie・メールアドレス・IPを送信前に除去。
+    このアプリが扱うのは「利用者が考えていることそのもの」なので、
+    マップ本文は決してエラーレポートに載せない。単体テストで担保（8件）
+  - セッションリプレイは思考内容が映るため無効
+- **検証済み**: lint / tsc / build / vitest(75件) / E2E(6件) / ブラウザ表示
+- **Known Gaps**: Sentry アカウント作成と DSN 設定（未設定でも動作に影響なし）
+- **Notes**: 手順は [DEPLOY.md](DEPLOY.md) 参照
 
-### REL-10: 利用状況モニタリング
-- **Status**: To Do
-- **Due Date**: TBD
+### REL-10: 利用状況モニタリング ✅ COMPLETED
+- **Status**: Completed（measurementId 設定で有効化）
+- **Due Date**: 2026-07-28
 - **Assigned To**: Claude
-- **Scope**: Firebase Analytics or GA4 で主要フロー（作成数・AI利用数・完成率・投稿数）を可視化
+- **Scope**: Firebase Analytics(GA4) で主要フロー（作成数・AI利用数・完成率・投稿数）を可視化
 - **Ambition**: Medium
-- **Known Gaps**: コスト管理ダッシュボード
-- **Notes**: 月次レビューで判断基準に
+- **Implementation**:
+  - `src/lib/analytics.ts` — measurementId 未設定なら SDK を読み込まない。
+    非対応ブラウザ・トラッキング防止拡張でも例外を出さない
+  - 計測イベント: `map_created` / `map_completed` / `ai_suggest_used` /
+    `ai_explain_used` / `ai_review_used` / `helper_used` /
+    `community_post_created`
+  - 配線箇所: `mindmap-store`（作成・完成）、`ai-client`（AI 3種の単一経路）、
+    `ControlPanel`（お助け機能）、`PublishModal`（投稿）
+  - **送るのは件数・割合・設定値のみ。テーマ名やノード本文は型で受け取れない
+    ようにして誤送信を防いでいる**
+- **Known Gaps**: コスト系（Groq 消費量・Firestore 読み書き）はコンソールで
+  目視確認する運用（[DEPLOY.md](DEPLOY.md) の月次チェックに記載）
+- **Notes**: 計測とエラー収集の追加はデータの扱いが変わるため、
+  プライバシーポリシーに第7〜9章を追加し `TERMS_VERSION` を 2 に上げて再合意を求める
 
-### REL-11: 障害対応の型化
-- **Status**: To Do
-- **Due Date**: TBD
-- **Assigned To**: You + Claude
+### REL-11: 障害対応の型化 ✅ COMPLETED
+- **Status**: Completed
+- **Due Date**: 2026-07-28
+- **Assigned To**: Claude
 - **Scope**: 
   - デプロイ前チェックリスト（REL-05 と統合）
   - ロールバック手順（Vercel・Firestore）
   - 依存パッケージ監査を月次実行
 - **Ambition**: Small
+- **Implementation**: [DEPLOY.md](DEPLOY.md) に集約
+  - Vercel（本番）/ Netlify（予備）の初期設定と環境変数一覧
+  - デプロイ前チェックリスト（rules/Functions を先に出す順序を明記）
+  - ロールバック手順（Vercel の Promote / Firestore ルール履歴 /
+    Functions は前コミット再デプロイ）と症状別の初動表
+  - 月次運用（npm audit・Groq/Firebase 使用量・Sentry 棚卸し・GA 確認）
+  - よくあるつまずき（`.next/dev` キャッシュ・承認済みドメイン・Root Directory）
 - **Known Gaps**: None
-- **Notes**: Phase C 完了時に一般公開許可
+- **Notes**: Phase C 完了 ＝ 一般公開の判断ができる状態
+
+### INFRA: Vercel デプロイ環境の整備 ✅ COMPLETED
+- **Status**: Completed
+- **Due Date**: 2026-07-28
+- **Scope**: Netlify に加えて Vercel でもデプロイできるようにする
+- **Implementation**: `mindmap-app/vercel.json`（framework: nextjs、
+  サーバー関数リージョンを東京 `hnd1` に固定＝Firestore/Functions と同居）。
+  Netlify は既存の `netlify.toml`（base = mindmap-app）のまま予備系として維持
+- **Known Gaps**: **Vercel 側で Root Directory = `mindmap-app` の設定が必須**
+  （`vercel.json` では指定できないダッシュボード設定）
 
 ---
 

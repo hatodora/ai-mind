@@ -107,8 +107,15 @@ export default function PrivacyPage() {
             </p>
             <ul className="mt-2 list-inside list-disc space-y-1.5 pl-2">
               <li>Google (Firebase Authentication / Firestore / Cloud Functions)</li>
+              <li>
+                Google Analytics（利用状況の把握。詳細は「8. 利用状況の計測」）
+              </li>
               <li>Vercel（ホスティング）</li>
+              <li>Netlify（ホスティングの予備系）</li>
               <li>Groq（AI 推論）</li>
+              <li>
+                Sentry（エラー収集。詳細は「9. エラー情報の収集」）
+              </li>
             </ul>
           </Section>
 
@@ -150,12 +157,45 @@ export default function PrivacyPage() {
           <Section title="7. Cookie 等の利用">
             <p>
               本サービスは、認証セッションの維持および利便性向上のため、Cookie
-              および類似技術を利用します。ブラウザの設定により Cookie
+              および類似技術を利用します。また、次項の利用状況の計測にも Cookie
+              を用います。ブラウザの設定により Cookie
               を無効化できますが、その場合本サービスの一部機能をご利用いただけないことがあります。
             </p>
           </Section>
 
-          <Section title="8. 安全管理措置">
+          <Section title="8. 利用状況の計測">
+            <p>
+              本サービスは、機能の改善のために Google Analytics
+              を用いて利用状況を計測します。計測するのは「マップを作成した」「AI
+              に相談した」「マップを完成した」といった操作の回数と、そのときのノード数・AI
+              使用率・設定値（アシストレベル・年齢帯・AI
+              の人格）などの数値のみです。
+            </p>
+            <p className="mt-2">
+              <strong>
+                マップのテーマ名・ノードの本文・結論など、利用者が書いた内容そのものは計測対象に含めません。
+              </strong>
+              Google Analytics は Cookie
+              を用いて利用者を識別します。ブラウザの設定や Google
+              の提供するオプトアウト機能により、計測を拒否できます。
+            </p>
+          </Section>
+
+          <Section title="9. エラー情報の収集">
+            <p>
+              不具合の検知と修正のため、本サービスで発生したエラーの内容（エラーメッセージ、発生箇所、ブラウザの種類、発生時刻、ログイン中の場合は利用者
+              ID）を Sentry に送信します。
+            </p>
+            <p className="mt-2">
+              <strong>
+                エラー情報にも、マップの本文・メールアドレス・IP
+                アドレスは含めません。
+              </strong>
+              送信前にこれらを取り除いたうえで記録しています。
+            </p>
+          </Section>
+
+          <Section title="10. 安全管理措置">
             <p>
               当方は、個人情報の漏えい・滅失または毀損の防止その他個人情報の安全管理のために必要かつ適切な措置を講じます。認証情報の管理には
               Firebase Authentication を、データ本体は Firestore
@@ -163,7 +203,7 @@ export default function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="9. 開示・訂正・削除等の請求">
+          <Section title="11. 開示・訂正・削除等の請求">
             <p>
               利用者は、当方が保有する自己の個人情報について、開示・訂正・追加・削除・利用停止を請求できます。
               <Link
@@ -176,13 +216,13 @@ export default function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="10. 本ポリシーの変更">
+          <Section title="12. 本ポリシーの変更">
             <p>
               当方は必要に応じて本ポリシーを変更することがあります。変更後の本ポリシーは、本サイトに掲示された時点から効力を生じます。実質的な変更については、次回ログイン時に再合意を求めることがあります。
             </p>
           </Section>
 
-          <Section title="11. お問い合わせ窓口">
+          <Section title="13. お問い合わせ窓口">
             <p>
               本ポリシーに関するお問い合わせは、
               <Link

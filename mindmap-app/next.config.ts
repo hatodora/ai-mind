@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 /**
  * セキュリティヘッダー（SEC-03）。
@@ -30,4 +31,24 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Sentry（REL-09）のビルド時設定。
+ *
+ * ソースマップのアップロードは SENTRY_AUTH_TOKEN・組織・プロジェクトが
+ * 揃っているときだけ行う。未設定でもビルドは通る（警告が出るだけ）ので、
+ * CI やローカルで Sentry を設定していなくても支障がない。
+ */
+const sentryBuildOptions = {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // ビルドログを汚さない。設定漏れの検知は SENTRY_DEBUG=true で行う
+  silent: !process.env.SENTRY_DEBUG,
+  telemetry: false,
+  // 認証情報が無いときはアップロードを試みない（ビルド失敗を避ける）
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+};
+
+export default withSentryConfig(nextConfig, sentryBuildOptions);
