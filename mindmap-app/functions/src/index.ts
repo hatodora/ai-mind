@@ -29,8 +29,31 @@ const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
 const MODEL_NAME = "llama-3.3-70b-versatile";
 const REGION = "asia-northeast1";
 
+/**
+ * App Check の強制（REL-06）。
+ * functions/.env（または デプロイ環境）で ENFORCE_APP_CHECK=true にすると、
+ * 正規のアプリからのリクエストのみを受け付けるようになる。
+ *
+ * 有効化の前提: クライアントに NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY を設定し、
+ * Firebase コンソールで App Check を「適用」にしておくこと。
+ * 手順は SECURITY_PRODUCTION.md を参照。既定は false（＝段階導入できる）。
+ */
+const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === "true";
+
 /** レートリミット: 1ユーザーあたり1時間の最大AI呼び出し回数 */
 const HOURLY_LIMIT = 30;
+/**
+ * 1ユーザーあたり1日の最大AI呼び出し回数（REL-06）。
+ * 1時間の上限だけだと 30回 × 24時間 = 720回/日まで通ってしまうため、
+ * 日次でも頭を押さえて1アカウントあたりのコスト上限を作る。
+ */
+const DAILY_LIMIT = Number(process.env.AI_DAILY_LIMIT ?? 120);
+/**
+ * 全ユーザー合計の1日あたり最大AI呼び出し回数（REL-06 サーキットブレーカー）。
+ * 予算アラートは「事後の通知」でしかないため、実際に課金を止めるのはこの上限。
+ * 想定利用者数が増えたら functions の環境変数 AI_GLOBAL_DAILY_LIMIT で引き上げる。
+ */
+const GLOBAL_DAILY_LIMIT = Number(process.env.AI_GLOBAL_DAILY_LIMIT ?? 3000);
 
 /** キャッシュTTL（ミリ秒） */
 const TTL = {
@@ -54,25 +77,86 @@ function requireVerifiedUser(request: CallableRequest): string {
   return request.auth.uid;
 }
 
-/** ユーザーごとの時間窓レートリミット（SEC-04）。超過時はエラー */
+/**
+ * 日次の窓に使う日付キー（YYYY-MM-DD）。
+ * 運営者・利用者とも日本国内想定なので JST の暦日で区切る。
+ */
+function dayKey(now: number): string {
+  return new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * 全体の1日あたり呼び出し数の上限（REL-06 サーキットブレーカー）。
+ *
+ * 単一ドキュメントを全リクエストのトランザクションに巻き込むと、そこが
+ * 書き込みのボトルネックになるため、ここでは「読み取りで判定 → increment で加算」
+ * にしている。判定がわずかに古くなり上限を数回超えることはあるが、
+ * 目的は暴走した課金を止めることなので実用上問題ない。
+ */
+async function enforceGlobalDailyCap(now: number): Promise<void> {
+  const today = dayKey(now);
+  const ref = db.doc("system/aiUsage");
+  const snap = await ref.get();
+  const data = snap.exists ? snap.data()! : {};
+  const sameDay = data.dayKey === today;
+  const count = sameDay ? ((data.count as number) ?? 0) : 0;
+  if (count >= GLOBAL_DAILY_LIMIT) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "本日のAI利用が全体の上限に達しました。時間をおいてお試しください",
+    );
+  }
+  if (sameDay) {
+    await ref.set({ count: FieldValue.increment(1) }, { merge: true });
+  } else {
+    // 日付が変わったのでカウンタをリセットして数え直す
+    await ref.set({ dayKey: today, count: 1 });
+  }
+}
+
+/**
+ * ユーザーごとのレートリミット（SEC-04 / REL-06）。
+ * 1時間の窓に加えて1日の合計も見る（時間上限だけだと 30回×24時間まで通るため）。
+ * 超過時はエラー。
+ */
 async function enforceRateLimit(uid: string): Promise<void> {
+  const now = Date.now();
+  // 全体上限を先に見る。ここで止まったらユーザーの回数は消費しない
+  await enforceGlobalDailyCap(now);
+
   const ref = db.doc(`users/${uid}/private/usage`);
+  const today = dayKey(now);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const now = Date.now();
-    const hourStart = snap.exists ? (snap.data()!.hourStart as number) : 0;
-    const count = snap.exists ? (snap.data()!.count as number) : 0;
-    if (now - hourStart < 60 * 60 * 1000) {
-      if (count >= HOURLY_LIMIT) {
-        throw new HttpsError(
-          "resource-exhausted",
-          "AIの利用回数が上限に達しました。1時間ほど待ってからお試しください",
-        );
-      }
-      tx.set(ref, { hourStart, count: count + 1 }, { merge: true });
-    } else {
-      tx.set(ref, { hourStart: now, count: 1 });
+    const d = snap.exists ? snap.data()! : {};
+    const hourStart = (d.hourStart as number) ?? 0;
+    const hourCount = (d.count as number) ?? 0;
+    // 日付が変わっていたら日次カウントは 0 から数え直す
+    const dayCount = d.dayKey === today ? ((d.dayCount as number) ?? 0) : 0;
+
+    if (dayCount >= DAILY_LIMIT) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "本日のAI利用回数が上限に達しました。明日またお試しください",
+      );
     }
+    const withinHour = now - hourStart < 60 * 60 * 1000;
+    if (withinHour && hourCount >= HOURLY_LIMIT) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "AIの利用回数が上限に達しました。1時間ほど待ってからお試しください",
+      );
+    }
+    tx.set(
+      ref,
+      {
+        hourStart: withinHour ? hourStart : now,
+        count: withinHour ? hourCount + 1 : 1,
+        dayKey: today,
+        dayCount: dayCount + 1,
+      },
+      { merge: true },
+    );
   });
 }
 
@@ -310,7 +394,7 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_COLLABORATORS = 10;
 
 export const createMapInvite = onCall(
-  { region: REGION },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const uid = requireVerifiedUser(request);
     const mapId = request.data?.mapId;
@@ -337,7 +421,7 @@ export const createMapInvite = onCall(
 );
 
 export const acceptMapInvite = onCall(
-  { region: REGION },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const uid = requireVerifiedUser(request);
     const token = request.data?.token;
@@ -433,7 +517,7 @@ async function deleteSubcollection(parent: DocumentReference): Promise<void> {
 }
 
 export const deleteAccount = onCall(
-  { region: REGION },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const uid = requireVerifiedUser(request);
 
@@ -544,7 +628,7 @@ const SUGGEST_SYSTEM = `あなたはユーザーの思考をサポートする�
 ["提案1", "提案2", "提案3"]`;
 
 export const aiSuggest = onCall(
-  { region: REGION, secrets: [GROQ_API_KEY], enforceAppCheck: false },
+  { region: REGION, secrets: [GROQ_API_KEY], enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const uid = requireVerifiedUser(request);
     const theme = asString(request.data?.theme, "theme", 200);
@@ -623,7 +707,7 @@ ${userNodes || "（まだ何もない）"}
 // ---------- aiExplain ----------
 
 export const aiExplain = onCall(
-  { region: REGION, secrets: [GROQ_API_KEY], enforceAppCheck: false },
+  { region: REGION, secrets: [GROQ_API_KEY], enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const uid = requireVerifiedUser(request);
     const theme = asString(request.data?.theme, "theme", 200);
@@ -652,7 +736,7 @@ export const aiExplain = onCall(
 // ---------- aiReview ----------
 
 export const aiReview = onCall(
-  { region: REGION, secrets: [GROQ_API_KEY], enforceAppCheck: false },
+  { region: REGION, secrets: [GROQ_API_KEY], enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const uid = requireVerifiedUser(request);
     const theme = asString(request.data?.theme, "theme", 200);

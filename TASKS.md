@@ -74,17 +74,39 @@
   クレーム（`admin: true`）で行うこと。段階実装を推奨（お問い合わせ管理
   → 利用状況集計 → Vercel/Groq連携の順）。
 
-### REL-06: 本番セキュリティ有効化
-- **Status**: To Do
-- **Due Date**: TBD
-- **Assigned To**: Claude
-- **Scope**: 
+### REL-06: 本番セキュリティ有効化 🟡 実装完了・手動設定待ち
+- **Status**: Code Ready（コンソール作業待ち）
+- **Due Date**: 2026-07-27（実装分）
+- **Assigned To**: Claude（実装）/ You（コンソール作業）
+- **Scope**:
   - Firebase App Check（reCAPTCHA v3）を有効化
   - Groq・Firebase の予算アラート設定
   - レートリミット本番再検証
 - **Ambition**: Medium
-- **Known Gaps**: App Check の閾値設定
-- **Notes**: SEC-07 実行時に合わせて設定
+- **Implementation**（すべて既定は無効・段階導入できる形）:
+  - App Check クライアント初期化（`src/lib/firebase.ts`）。
+    `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` を設定したときだけ有効化。
+    ローカル用のデバッグトークンにも対応
+  - Functions の `enforceAppCheck` を `ENFORCE_APP_CHECK` で切替（既定 false）
+  - **未認証AI経路（`/api/ai/*`）を本番で遮断**（`src/lib/ai-guard.ts`）。
+    認証なしで Groq を叩ける穴を塞ぐ。`AI_PUBLIC_FALLBACK` で明示的に開閉可
+  - レートリミット強化: 1ユーザー日次上限（120）＋
+    **全体日次サーキットブレーカー**（3000）＋ API Routes のプロセス全体上限（300/h）
+  - `system/{docId}` を rules で完全遮断（全体カウンタの残量漏れ防止）
+  - 環境変数テンプレート（`.env.local.example` / `functions/.env.example`）
+- **検証済み**:
+  - 本番モードで `/api/ai/{suggest,review,explain}` → 403
+  - `AI_PUBLIC_FALLBACK=on` で 200（明示解放が効く）
+  - 全体上限3に対し4回目から 429
+  - 開発モードは従来どおり 200
+  - lint / build / functions tsc / ブラウザ（コンソールエラーなし）
+- **Known Gaps**（ユーザー作業が必要）:
+  - reCAPTCHA v3 キー取得 → Firebase App Check 登録 → 数日監視 → 強制ON
+  - GCP 予算アラート（50/90/100%）
+  - Groq の使用量アラート・上限
+  - 未ログインでも AI を使わせるかの製品判断（既定は本番で不可）
+- **Notes**: **手順は [SECURITY_PRODUCTION.md](SECURITY_PRODUCTION.md) に集約**。
+  コード側の上限が「止める」役、予算アラートが「気づく」役で、両方必要。
 
 ---
 

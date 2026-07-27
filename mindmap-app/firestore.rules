@@ -310,6 +310,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ---------- system: 全体の利用量カウンタ（REL-06・Cloud Functions 専用） ----------
+    // クライアントから読めると全体上限の残量が漏れるので完全に閉じる
+    match /system/{docId} {
+      allow read, write: if false;
+    }
+
     // ---------- 上記以外はすべて拒否 ----------
     match /{document=**} {
       allow read, write: if false;

@@ -8,6 +8,7 @@ import {
   splitReviewResponse,
 } from "@/lib/ai-validate";
 import { allowRequest, clientIp } from "@/lib/rate-limit";
+import { publicAiDisabledResponse } from "@/lib/ai-guard";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,9 @@ interface RequestBody {
 }
 
 export async function POST(req: Request) {
+  // 本番では未認証の AI 経路を閉じる（REL-06）。最初に判定する
+  const disabled = publicAiDisabledResponse();
+  if (disabled) return disabled;
   // 認証なし経路のためIP単位で連打を抑える（SEC-04）。検証より先に判定する
   if (!allowRequest(clientIp(req))) {
     return NextResponse.json(

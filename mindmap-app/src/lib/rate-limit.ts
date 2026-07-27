@@ -15,10 +15,21 @@
 const WINDOW_MS = 60 * 60 * 1000;
 /** 窓あたりの許可回数（IP単位） */
 const LIMIT_PER_WINDOW = 30;
+/**
+ * このプロセス全体で1時間に許可する回数（REL-06）。
+ * IP はいくらでも詐称・分散できるため、IP 単位の上限だけでは
+ * 「多数の IP から少しずつ」という叩き方を止められない。
+ * 1インスタンスあたりの総量に蓋をして、課金の暴走を抑える。
+ */
+const GLOBAL_LIMIT_PER_WINDOW = Number(
+  process.env.AI_PUBLIC_HOURLY_LIMIT ?? 300,
+);
 /** メモリ肥大化を防ぐための掃除しきい値 */
 const CLEANUP_THRESHOLD = 10_000;
 
 const buckets = new Map<string, { start: number; count: number }>();
+/** プロセス全体の窓。IP 単位のバケツとは別に数える */
+let globalBucket = { start: 0, count: 0 };
 
 /** リクエスト元IPの推定。取れなければ "unknown"（全体で1バケツ共有） */
 export function clientIp(req: Request): string {
@@ -35,12 +46,21 @@ export function allowRequest(ip: string): boolean {
       if (now - b.start >= WINDOW_MS) buckets.delete(key);
     }
   }
+
+  // プロセス全体の上限を先に見る（IP を分散されても総量で止められる）
+  if (now - globalBucket.start >= WINDOW_MS) {
+    globalBucket = { start: now, count: 0 };
+  }
+  if (globalBucket.count >= GLOBAL_LIMIT_PER_WINDOW) return false;
+
   const bucket = buckets.get(ip);
   if (!bucket || now - bucket.start >= WINDOW_MS) {
     buckets.set(ip, { start: now, count: 1 });
+    globalBucket.count += 1;
     return true;
   }
   if (bucket.count >= LIMIT_PER_WINDOW) return false;
   bucket.count += 1;
+  globalBucket.count += 1;
   return true;
 }
