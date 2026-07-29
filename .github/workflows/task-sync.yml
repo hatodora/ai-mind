@@ -14,7 +14,7 @@ env:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    if: env.NOTION_TOKEN && env.NOTION_DATABASE_ID
+    if: secrets.NOTION_TOKEN && secrets.NOTION_DATABASE_ID
 
     steps:
       - uses: actions/checkout@v4
