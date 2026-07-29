@@ -96,10 +96,11 @@ jobs:
           cache-dependency-path: mindmap-app/package-lock.json
 
       # Firestore rules エミュレータの実行に Java が必要
+      # firebase-tools 15+ は Java 21 以上を要求
       - uses: actions/setup-java@v4
         with:
           distribution: "temurin"
-          java-version: "17"
+          java-version: "21"
 
       - name: Install dependencies
         run: npm ci
