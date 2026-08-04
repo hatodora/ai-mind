@@ -2,7 +2,7 @@
 
 > Shape UP形式で、フェーズと進捗を一元管理
 
-**最終更新**: 2026-07-27  
+**最終更新**: 2026-07-28  
 **リポジトリ**: mindmap-app  
 **Notion 同期**: 有効（GitHub Actions）
 
@@ -14,9 +14,83 @@
 |---------|------|--------|------|--------|
 | **Phase A** | In Progress | 2/6 | 6 | 33% |
 | **Phase B** | Complete | 2/2 | 2 | 100% |
-| **Phase C** | Complete | 3/3 | 3 | 100% |
+| **Phase C** | Complete（コード完成、外部設定待ち） | 3/3 | 3 | 100% |
 | **Phase D** | On Hold | 0/∞ | - | - |
 | **実装済み** | Complete | 48/48 | 48 | 100% |
+
+---
+
+## 🚀 **即時アクション: 本番公開前の残タスク**
+
+### ✅ コード側は完成 → 外部サービス設定が必須
+
+| No. | タスク | 担当 | 期限 | 用途 |
+|-----|--------|------|------|------|
+| **1** | **Sentry アカウント作成** | **You** | 本番前 | エラー収集（REL-09） |
+| **2** | **Firebase Analytics 連携** | **You** | 本番前 | 利用状況計測（REL-10） |
+| **3** | **Vercel Root Directory 設定** | **You** | デプロイ時 | Next.js ビルド必須 |
+| **4** | **ポータル・管理ダッシュボード完成** | **You** | Phase A 完了後 | ユーザー・運用画面（REL-03〜05） |
+| **5** | **Firestore / Cloud Functions デプロイ** | **Claude** | コード + 外部設定後 | 本番ルール・AI 機能の確定 |
+| **6** | **本番ドメイン確認・承認済みドメイン登録** | **You** | デプロイ直前 | ログイン有効化（必須） |
+
+---
+
+## 🔧 **Your Action Items（優先順）**
+
+### ステップ1: Sentry 設定（30分）
+```
+1. sentry.io でアカウント作成
+2. 新しい Next.js プロジェクト作成
+3. DSN をコピー → Vercel 環境変数に設定
+4. SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN も取得（ソースマップ送信用・任意）
+```
+
+### ステップ2: Firebase Analytics 連携（20分）
+```
+1. Firebase コンソール → プロジェクト設定 → 全般
+2. ウェブアプリ下部に「Google Analytics を有効にする」（未設定ならクリック）
+3. measurementId（G-XXXXXXXXXX）をコピー → Vercel 環境変数に設定
+```
+
+### ステップ3: Vercel デプロイ準備（10分）
+```
+1. https://vercel.com/new で GitHub リポジトリを Import
+2. Root Directory = mindmap-app に設定（必須！）
+3. 環境変数を登録（下表）
+4. Deploy（CI が緑なら通る）
+```
+
+### ステップ4: ドメイン確認（10分）
+```
+1. 本番ドメイン決定 → Firebase コンソール → Authentication → Settings → 承認済みドメイン
+   に追加
+2. Vercel → Settings → Domains で同じドメインを追加
+3. ログインテスト（本番ドメインで実際にログインできるか）
+```
+
+### ステップ5: Cloud Functions / Firestore ルールのデプロイ
+```
+前提: Sentry DSN と Firebase Analytics measurementId が Vercel に設定済み
+実行:
+  cd mindmap-app
+  firebase deploy --only firestore:rules,functions
+```
+
+---
+
+## 📋 **Vercel 環境変数チェックリスト**
+
+下表の値を Vercel → Settings → Environment Variables に登録。
+詳細は [mindmap-app/.env.local.example](mindmap-app/.env.local.example) 参照。
+
+| 変数 | 状態 | 値の出典 |
+|---|---|---|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` 他 6個 | 必須 | Firebase コンソール → プロジェクト設定 → ウェブアプリ |
+| `NEXT_PUBLIC_AI_BACKEND` | 必須 | 値: `functions` （既定） |
+| `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` | ✅ 設定済み | reCAPTCHA コンソール（ユーザー取得済み） |
+| `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | ⬜ You設定待ち | Firebase Analytics 連携時に生成 |
+| `NEXT_PUBLIC_SENTRY_DSN` | ⬜ You設定待ち | Sentry プロジェクト設定 |
+| `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | 任意 | Sentry（ソースマップ送信・未設定でもビルド通る） |
 
 ---
 

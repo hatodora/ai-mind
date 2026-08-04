@@ -71,7 +71,9 @@ Vercel / Netlify の両方に、同じ値を登録する。
 | 変数 | 用途 |
 |---|---|
 | `NEXT_PUBLIC_FIREBASE_API_KEY` 他 6 個 | Firebase クライアント初期化 |
-| `NEXT_PUBLIC_AI_BACKEND=functions` | AI を Cloud Functions 経由にする |
+
+> AI 経路の切り替え変数は不要になった。ログイン済みなら既定で
+> Cloud Functions を使う（`NEXT_PUBLIC_AI_BACKEND=routes` のときだけ旧経路）。
 
 ### 任意（設定して初めて有効になる）
 

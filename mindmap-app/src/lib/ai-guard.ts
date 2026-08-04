@@ -26,11 +26,18 @@ export function isPublicAiEnabled(): boolean {
 /**
  * 経路が閉じているときに返すレスポンス。開いていれば null。
  * 各 route の先頭で呼び、null でなければそのまま返すこと。
+ *
+ * ここに到達するのは未ログイン時だけのはずなので、文言も未ログイン前提にする。
+ * ただしログイン済みでも認証状態の復元前などに落ちてくることがあり得るため、
+ * 「ログインしているのに出た」場合の次の一手も書いておく。
  */
 export function publicAiDisabledResponse(): NextResponse | null {
   if (isPublicAiEnabled()) return null;
   return NextResponse.json(
-    { error: "AI機能を使うにはログインが必要です" },
+    {
+      error:
+        "AI機能はログイン後にご利用いただけます。ログイン済みでこの表示が出る場合は、ページを再読み込みしてお試しください",
+    },
     { status: 403 },
   );
 }

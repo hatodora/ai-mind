@@ -50,3 +50,7 @@ firebase-secrets.json
 tmp/
 temp/
 scratch/
+
+# Playwright（リポジトリ直下から実行した場合の出力）
+/test-results/
+/playwright-report/

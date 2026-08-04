@@ -209,8 +209,9 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 
-# AI のバックエンド。Functions デプロイ後は functions にする
-NEXT_PUBLIC_AI_BACKEND=functions
+# AI のバックエンド。未設定＝ログイン済みは自動で Functions 経由。
+# Functions 未デプロイの検証環境でのみ routes を指定する
+# NEXT_PUBLIC_AI_BACKEND=routes
 
 # App Check（REL-06）
 NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY=<reCAPTCHA v3 サイトキー>
@@ -244,7 +245,7 @@ AI_GLOBAL_DAILY_LIMIT=3000
 
 - [ ] Firestore ルールをデプロイ（`firebase deploy --only firestore:rules`）
 - [ ] Cloud Functions をデプロイ（`deleteAccount` と新レートリミットを含む）
-- [ ] `NEXT_PUBLIC_AI_BACKEND=functions` を本番に設定
+- [ ] 本番に `NEXT_PUBLIC_AI_BACKEND` を **設定していない**ことを確認（既定で Functions 経由）
 - [ ] 未認証 AI 経路が本番で閉じていることを確認（`/api/ai/suggest` に POST して 403）
 - [ ] reCAPTCHA v3 のキーを取得し、Firebase App Check に登録
 - [ ] `NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY` を本番に設定

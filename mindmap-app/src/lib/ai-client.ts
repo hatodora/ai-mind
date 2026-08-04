@@ -1,3 +1,4 @@
+import { FirebaseError } from "firebase/app";
 import { httpsCallable } from "firebase/functions";
 import {
   firebaseAuth,
@@ -9,19 +10,69 @@ import { track } from "./analytics";
 /**
  * AI呼び出しの入り口を一本化する。
  *
- * - NEXT_PUBLIC_AI_BACKEND=functions かつログイン（メール確認）済み
+ * - ログイン済み
  *   → Cloud Functions（IDトークン検証・レートリミット・キャッシュ付き。SEC-02）
- * - それ以外（未ログイン・未デプロイ環境）
- *   → 従来の Next.js API Routes にフォールバック
+ * - 未ログイン・Firebase 未設定
+ *   → Next.js API Routes（認証なし。本番では REL-06 により閉じている）
  *
- * Functions デプロイ後に .env.local へ NEXT_PUBLIC_AI_BACKEND=functions を
- * 追加すると切り替わる。
+ * 既定を Functions 側にしているのは、環境変数の設定漏れが
+ * 「ログイン済みなのに未認証経路へ流れて 403」という形で表面化したため。
+ * 旧経路を強制したいとき（Functions 未デプロイの検証環境など）だけ
+ * NEXT_PUBLIC_AI_BACKEND=routes を設定する。
  */
-function shouldUseFunctions(): boolean {
-  if (process.env.NEXT_PUBLIC_AI_BACKEND !== "functions") return false;
+function isRoutesForced(): boolean {
+  return process.env.NEXT_PUBLIC_AI_BACKEND === "routes";
+}
+
+async function shouldUseFunctions(): Promise<boolean> {
+  if (isRoutesForced()) return false;
   if (!isFirebaseConfigured()) return false;
-  const user = firebaseAuth().currentUser;
-  return !!user && user.emailVerified;
+  const auth = firebaseAuth();
+  // 復元中は currentUser が一時的に null になる。ここで待たないと
+  // リロード直後の AI 実行だけ未認証経路へ落ちてしまう
+  await auth.authStateReady();
+  return auth.currentUser !== null;
+}
+
+/**
+ * Functions のエラーコードを、次に何をすればいいか分かる日本語にする。
+ * HttpsError で投げたメッセージ（メール未確認・上限超過など）は
+ * そのまま見せたほうが正確なので温存する。
+ */
+function describeFunctionError(e: unknown): Error {
+  if (!(e instanceof FirebaseError)) {
+    return e instanceof Error ? e : new Error("AIリクエストに失敗しました");
+  }
+  switch (e.code.replace(/^functions\//, "")) {
+    case "unauthenticated":
+      return new Error(
+        "ログインの有効期限が切れています。一度ログアウトして再度ログインしてください",
+      );
+    case "unavailable":
+    case "deadline-exceeded":
+      return new Error(
+        "AIサーバーに接続できませんでした。通信環境を確認して、もう一度お試しください",
+      );
+    case "not-found":
+    case "unimplemented":
+      return new Error(
+        "AI機能がまだ有効になっていません（Cloud Functions が未デプロイです）",
+      );
+    default:
+      // permission-denied（メール未確認・App Check 不通過）や
+      // resource-exhausted（上限超過）はサーバー側の文言が最も具体的
+      return new Error(e.message || "AIリクエストに失敗しました");
+  }
+}
+
+/**
+ * Functions 未デプロイのローカル開発だけ旧経路に落とす。
+ * 本番で落とすと未認証経路の 403 に化けて原因が見えなくなるため落とさない。
+ */
+function canFallBackToRoute(e: unknown): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+  if (!(e instanceof FirebaseError)) return false;
+  return /(not-found|unimplemented|unavailable)$/.test(e.code);
 }
 
 async function callFunction<T>(name: string, payload: unknown): Promise<T> {
@@ -49,6 +100,23 @@ async function callRoute<T>(path: string, payload: unknown): Promise<T> {
   }
   if (json === null) throw new Error("AI応答の解析に失敗しました");
   return json as T;
+}
+
+/** 経路選択・フォールバック・エラー整形をまとめた共通の呼び出し口 */
+async function callAi<T>(
+  fnName: string,
+  routePath: string,
+  payload: unknown,
+): Promise<T> {
+  if (!(await shouldUseFunctions())) {
+    return callRoute<T>(routePath, payload);
+  }
+  try {
+    return await callFunction<T>(fnName, payload);
+  } catch (e) {
+    if (canFallBackToRoute(e)) return callRoute<T>(routePath, payload);
+    throw describeFunctionError(e);
+  }
 }
 
 /**
@@ -82,9 +150,11 @@ export async function aiSuggest(
     contextNodes: { id: string; label: string; role: string }[];
   } & PersonaOptions,
 ): Promise<{ suggestions: string[] }> {
-  const result = await (shouldUseFunctions()
-    ? callFunction<{ suggestions: string[] }>("aiSuggest", payload)
-    : callRoute<{ suggestions: string[] }>("/api/ai/suggest", payload));
+  const result = await callAi<{ suggestions: string[] }>(
+    "aiSuggest",
+    "/api/ai/suggest",
+    payload,
+  );
   trackAiUse("ai_suggest_used", payload);
   return result;
 }
@@ -95,9 +165,11 @@ export async function aiExplain(
     theme: string;
   } & PersonaOptions,
 ): Promise<{ explanation: string }> {
-  const result = await (shouldUseFunctions()
-    ? callFunction<{ explanation: string }>("aiExplain", payload)
-    : callRoute<{ explanation: string }>("/api/ai/explain", payload));
+  const result = await callAi<{ explanation: string }>(
+    "aiExplain",
+    "/api/ai/explain",
+    payload,
+  );
   trackAiUse("ai_explain_used", payload);
   return result;
 }
@@ -118,9 +190,11 @@ export async function aiReview(
     usedNodeLabels?: string[];
     categories?: { name: string; nodes: string[] }[];
   };
-  const result = await (shouldUseFunctions()
-    ? callFunction<ReviewResult>("aiReview", payload)
-    : callRoute<ReviewResult>("/api/ai/review", payload));
+  const result = await callAi<ReviewResult>(
+    "aiReview",
+    "/api/ai/review",
+    payload,
+  );
   trackAiUse("ai_review_used", payload);
   return result;
 }
