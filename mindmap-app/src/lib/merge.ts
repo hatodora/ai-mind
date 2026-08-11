@@ -108,6 +108,11 @@ export function mergeMaps(
   // 基本はリモートが正。直近にローカルで操作した場合のみローカルを保つ
   // （所有権・共有設定は常にリモート＝サーバーの最新を正とする）
   const metaFresh = dirty.metaTouchedAt > now - DIRTY_WINDOW_MS;
+  // 省略可能な項目は、ローカルが未設定なら書き戻さない。
+  // そのまま渡すと undefined でリモートの値（相手が立てた completed など）を
+  // 消してしまい、直後のデバウンス保存でサーバー側からも失われる
+  const keepLocal = <T,>(l: T | undefined, r: T | undefined): T | undefined =>
+    l === undefined ? r : l;
   const merged: MindMap = {
     ...remote,
     nodes,
@@ -117,10 +122,10 @@ export function mergeMaps(
           aiGauge: local.aiGauge,
           currentTurn: local.currentTurn,
           turnCount: local.turnCount,
-          aiRequestCount: local.aiRequestCount,
-          completed: local.completed,
-          completedAt: local.completedAt,
-          assistLevel: local.assistLevel,
+          aiRequestCount: keepLocal(local.aiRequestCount, remote.aiRequestCount),
+          completed: keepLocal(local.completed, remote.completed),
+          completedAt: keepLocal(local.completedAt, remote.completedAt),
+          assistLevel: keepLocal(local.assistLevel, remote.assistLevel),
         }
       : {}),
   };

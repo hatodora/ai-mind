@@ -1,25 +1,44 @@
 import type { MindMapEdge, MindMapNode } from "@/types";
 
+/** 兄弟ノードを配る扇の基準半径 */
+const BASE_RADIUS = 260;
+/** 扇を1周使い切ったら、この分だけ外側の輪に移る（ノード幅より広く取る） */
+const RING_STEP = 230;
+/** 兄弟どうしの角度間隔（ラジアン）。ノードの高さより広く離れる値 */
+const ANGLE_STEP = (26 * Math.PI) / 180;
+/** 1つの輪に配れる数（中央 ＋ 上下2段ずつ） */
+const SLOTS_PER_RING = 5;
+
+/**
+ * 新しいノードを親の右側に扇状に配る。
+ *
+ * 位置は「その親に既にぶら下がっている数」だけで決まる。
+ * 1個ずつ追加してもまとめて追加しても同じ規則で並び、
+ * 既に置いたノードを動かさずに重なりを避けられる。
+ *
+ * 中央 → 上 → 下 → さらに上 → さらに下 …の順に埋め、
+ * 使い切ったら半径を広げて次の輪へ移る。
+ */
 export function autoPosition(
   parentId: string,
   nodes: MindMapNode[],
   edges: MindMapEdge[],
-  index: number,
-  total: number,
 ): { x: number; y: number } {
   const parent = nodes.find((n) => n.id === parentId);
   if (!parent) return { x: 0, y: 0 };
 
-  const siblings = edges.filter((e) => e.source === parentId).length;
-  const radius = 220 + siblings * 30;
-  const angleSpread = Math.PI * 1.4;
-  const startAngle = -angleSpread / 2;
-  const angle =
-    total <= 1 ? 0 : startAngle + (angleSpread * index) / Math.max(total - 1, 1);
+  // 既存の兄弟の数がそのまま自分の席番号になる
+  const slot = edges.filter((e) => e.source === parentId).length;
+  const ring = Math.floor(slot / SLOTS_PER_RING);
+  const seat = slot % SLOTS_PER_RING;
+  // 0, +1, -1, +2, -2 … と中央から交互に外へ広がる
+  const step = Math.ceil(seat / 2) * (seat % 2 === 1 ? 1 : -1);
+  const angle = step * ANGLE_STEP;
+  const radius = BASE_RADIUS + ring * RING_STEP;
 
   return {
     x: parent.position.x + Math.cos(angle) * radius,
-    y: parent.position.y + Math.sin(angle) * radius + (siblings * 20 - 40),
+    y: parent.position.y + Math.sin(angle) * radius,
   };
 }
 

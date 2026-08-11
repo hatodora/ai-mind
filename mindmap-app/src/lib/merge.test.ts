@@ -156,3 +156,44 @@ describe("mergeMaps", () => {
     expect(merged.visibility).toBe("shared");
   });
 });
+
+describe("省略可能なメタ情報の保護", () => {
+  // 共同編集相手が立てた完成フラグを、ローカルの未設定値で消さないこと
+  function base(): MindMap {
+    return {
+      id: "m1",
+      theme: "テーマ",
+      nodes: [],
+      edges: [],
+      currentTurn: "user",
+      turnCount: 0,
+      aiGauge: 0,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+  }
+
+  it("相手が立てた completed をローカルの未設定で消さない", () => {
+    const local = base();
+    const remote: MindMap = { ...base(), completed: true, completedAt: 1234 };
+    const dirty = emptyDirty();
+    dirty.metaTouchedAt = Date.now();
+
+    const { merged } = mergeMaps(local, remote, dirty);
+
+    expect(merged.completed).toBe(true);
+    expect(merged.completedAt).toBe(1234);
+  });
+
+  it("ローカルで完成にした直後はローカルを優先する", () => {
+    const local: MindMap = { ...base(), completed: true, completedAt: 999 };
+    const remote = base();
+    const dirty = emptyDirty();
+    dirty.metaTouchedAt = Date.now();
+
+    const { merged } = mergeMaps(local, remote, dirty);
+
+    expect(merged.completed).toBe(true);
+    expect(merged.completedAt).toBe(999);
+  });
+});

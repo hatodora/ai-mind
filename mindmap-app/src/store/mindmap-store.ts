@@ -209,7 +209,7 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
     const node: MindMapNode = {
       id,
       data: { label, role },
-      position: autoPosition(parentId, map.nodes, map.edges, 0, 1),
+      position: autoPosition(parentId, map.nodes, map.edges),
       type: "mindNode",
     };
     const edge: MindMapEdge = {
@@ -239,17 +239,16 @@ export const useMindMapStore = create<State & Actions>((set, get) => ({
     if (!map) return [];
     const newNodes: MindMapNode[] = [];
     const newEdges: MindMapEdge[] = [];
-    labels.forEach((label, i) => {
+    labels.forEach((label) => {
       const id = newId();
       newNodes.push({
         id,
         data: { label, role },
+        // 直前までに作った分も渡すことで、席番号が 1つずつ進む
         position: autoPosition(
           parentId,
           [...map.nodes, ...newNodes],
           [...map.edges, ...newEdges],
-          i,
-          labels.length,
         ),
         type: "mindNode",
       });

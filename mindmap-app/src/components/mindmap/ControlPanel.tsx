@@ -25,6 +25,7 @@ import {
   ageBandFromProfile,
 } from "@/lib/ai-persona";
 import { canPostToCommunity } from "@/lib/community";
+import { hasUsedHelper, markHelperUsed } from "@/lib/helper-usage";
 import { Celebration } from "./Celebration";
 import { PublishModal } from "./PublishModal";
 
@@ -151,7 +152,7 @@ function GaugeMeter({
       </div>
       {credits < AI_REQUEST_COST && (
         <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          あと {nodesToNext} 回 自分で考えると、AIに相談できます
+          あと {nodesToNext} 個 自分でノードを作ると、AIに相談できます
         </p>
       )}
     </div>
@@ -198,6 +199,8 @@ export function ControlPanel() {
     subtitle?: string;
   } | null>(null);
   const [publishOpen, setPublishOpen] = useState(false);
+  /** お助け機能（NF-04改）を使い切ったか。無料は1マップにつき1回だけ */
+  const [helperUsed, setHelperUsed] = useState(false);
   const lastActivityRef = useRef<number | null>(null);
   const prevNodeCountRef = useRef<number | null>(null);
 
@@ -259,6 +262,16 @@ export function ControlPanel() {
   useEffect(() => {
     prevNodeCountRef.current = null;
   }, [mapId]);
+
+  // お助け機能の消費済み判定（NF-04改）。マップごとに保持する。
+  // localStorage の読み取りはブラウザでしかできないので、
+  // 描画中ではなく次のティックで反映する（サーバー描画との食い違いを避ける）
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setHelperUsed(mapId ? hasUsedHelper(mapId) : false);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [mapId]);
   // ノード数が「増えて」しきい値を跨いだ時だけ祝う（読み込み直後は祝わない）
   useEffect(() => {
     const prev = prevNodeCountRef.current;
@@ -295,7 +308,8 @@ export function ControlPanel() {
     const free = opts?.free ?? false;
     if (!selected) return;
     if (!free && !canAskAI) return;
-    if (free && loading === "ai") return;
+    // 無料は1マップにつき1回だけ（NF-04改）
+    if (free && (helperUsed || loading === "ai")) return;
     setLoading("ai");
     setError(null);
     setAISuggestions([]);
@@ -333,8 +347,12 @@ export function ControlPanel() {
       noteAIRequest();
       setAISuggestions(suggestions);
       setTurn("ai");
-      // お助け機能（NF-04改）がどれだけ効いているかを見る（REL-10）
+      // お助け機能（NF-04改）は成功した時点で消費とする
+      // （失敗で1回を失わせない）
       if (free) {
+        markHelperUsed(requestMapId);
+        setHelperUsed(true);
+        // どれだけ効いているかを見る（REL-10）
         void track("helper_used", {
           node_count: map.nodes.length,
           ai_ratio: roundRatio(aiUsageRatio(map.nodes)),
@@ -456,6 +474,7 @@ export function ControlPanel() {
   // すべて満たしたときだけ、ゲージ無関係の無料AI提案を静かに差し出す
   const helperVisible =
     stalled &&
+    !helperUsed &&
     isUserTurn &&
     aiSuggestions.length === 0 &&
     aiEnabled &&
