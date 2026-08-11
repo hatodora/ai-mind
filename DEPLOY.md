@@ -21,6 +21,13 @@ GitHub (main)
 Next.js のアプリ本体はリポジトリ直下ではなく **`mindmap-app/`** にある。
 どちらのホストでもここを起点にする設定が要る（下記）。
 
+> **アプリのソースは `mindmap-app/` だけに置く。**
+> 以前はリポジトリ直下にも `src/` `functions/` `firebase.json` `firestore.rules` の
+> 複製が残っており、直下で `firebase deploy` を打つと古い Functions とルールが
+> 本番へ出てしまう状態だった（2026-08-11 に削除）。
+> 直下に `firebase.json` を置き直さないこと。Firebase の操作は必ず
+> `cd mindmap-app` してから行う。
+
 ---
 
 ## 1. Vercel（本番）
