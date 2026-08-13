@@ -70,3 +70,55 @@ test("存在しないマップIDでは「見つかりません」を表示する
   await page.goto("/map/does-not-exist-12345");
   await expect(page.getByText("マップが見つかりません")).toBeVisible();
 });
+
+/**
+ * チュートリアルとキャラクター（TUT-02 / CHR-02）。
+ * 初回訪問の入口なので、自動で始まってミッションが進むところまでを見る。
+ */
+
+test("初回訪問ではチュートリアルが自動で始まり、操作すると進む", async ({
+  page,
+}) => {
+  await page.goto("/");
+  // 自動開始は 0.6 秒後。バーが出て、最初のミッションを案内している
+  const bar = page.getByRole("status").filter({ hasText: "Tutorial" });
+  await expect(bar).toBeVisible();
+  await expect(bar).toContainText("新しいマップを作る");
+  await expect(bar).toContainText("0/6");
+
+  // 「新しいマップを作成する」を達成する
+  await page.getByRole("link", { name: "新しいマップを作る" }).click();
+  await expect(bar).toContainText("1/6");
+
+  // 「自分でテーマを決める」を達成する
+  await page
+    .getByPlaceholder("例: 転職について考えたい")
+    .fill(`E2Eチュートリアル-${Date.now()}`);
+  await page.getByRole("button", { name: "マインドマップを始める" }).click();
+  await expect(page).toHaveURL(/\/map\/.+/);
+  await expect(bar).toContainText("2/6");
+});
+
+test("チュートリアルは「やめる」で閉じられる", async ({ page }) => {
+  await page.goto("/");
+  const bar = page.getByRole("status").filter({ hasText: "Tutorial" });
+  await expect(bar).toBeVisible();
+  await page.getByRole("button", { name: "やめる" }).click();
+  await expect(bar).toBeHidden();
+
+  // 一度やめたら、次に開いても勝手には始まらない
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /考えよう/ })).toBeVisible();
+  await expect(bar).toBeHidden();
+});
+
+test("キャラクターは常駐し、さわると手を振る", async ({ page }) => {
+  await page.goto("/");
+  const mascot = page.getByRole("button", { name: "キャラクターにさわる" });
+  await expect(mascot).toBeVisible();
+
+  await mascot.click();
+  await expect(
+    mascot.getByRole("img", { name: "手を振っているキャラクター" }),
+  ).toBeVisible();
+});

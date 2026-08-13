@@ -113,6 +113,11 @@ export interface UserProfile {
   termsVersion?: number;
   /** 利用規約に合意した日時（REL-03） */
   termsAcceptedAt?: number;
+  /**
+   * チュートリアルを初めて完走した日時（TUT-03）。完走バッジの根拠。
+   * 2回目以降のクリアでは上書きしない（ルール側でも変更を禁じている）。
+   */
+  tutorialCompletedAt?: number;
   role: "user" | "admin";
   createdAt: number;
   updatedAt: number;

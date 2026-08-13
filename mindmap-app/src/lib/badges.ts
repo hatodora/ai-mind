@@ -18,9 +18,15 @@ export interface ThinkStats {
   soloCompletedMaps: number;
   /** 1枚のマップの最大ノード数 */
   maxMapNodes: number;
+  /** チュートリアルを完走したか（TUT-03）。1 = 完走済み */
+  tutorialCleared: number;
 }
 
-export function computeStats(maps: MindMap[]): ThinkStats {
+export function computeStats(
+  maps: MindMap[],
+  /** チュートリアル完走の有無（TUT-03）。マップからは導けないので外から渡す */
+  tutorialCleared = false,
+): ThinkStats {
   const stats: ThinkStats = {
     userNodes: 0,
     aiNodes: 0,
@@ -28,6 +34,7 @@ export function computeStats(maps: MindMap[]): ThinkStats {
     completedMaps: 0,
     soloCompletedMaps: 0,
     maxMapNodes: 0,
+    tutorialCleared: tutorialCleared ? 1 : 0,
   };
   for (const m of maps) {
     const users = m.nodes.filter((n) => n.data.role === "user").length;
@@ -80,6 +87,19 @@ function tiers(
 
 /** バッジ一覧（UP-01）。カテゴリごとに段階制 */
 export const BADGE_CATEGORIES: BadgeCategory[] = [
+  {
+    id: "tutorial",
+    label: "はじまり — チュートリアル",
+    badges: [
+      {
+        id: "tutorial_1",
+        name: "はじめの一歩",
+        description: "チュートリアルのミッションをすべて達成する",
+        goal: 1,
+        value: (s) => s.tutorialCleared,
+      },
+    ],
+  },
   {
     id: "nodes",
     label: "つみかさね — 自分の言葉のノード",

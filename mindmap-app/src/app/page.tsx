@@ -6,6 +6,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRepo, purgeExpiredAnonMaps, createFirestoreRepo } from "@/lib/repo";
 import { storage } from "@/lib/storage";
+import { MascotDock } from "@/components/character/MascotDock";
+import { TutorialBar } from "@/components/tutorial/TutorialBar";
+import { useTutorialStore } from "@/store/tutorial-store";
 import type { MindMap } from "@/types";
 
 function relativeTime(ts: number): string {
@@ -138,6 +141,12 @@ export default function HomePage() {
   const [maps, setMaps] = useState<MindMap[]>([]);
   const [localCount, setLocalCount] = useState(0);
   const [migrating, setMigrating] = useState(false);
+  const startTutorial = useTutorialStore((s) => s.start);
+  const clearedOnThisDevice = useTutorialStore((s) => s.clearedAt !== null);
+  // 端末の記録に加えて、ログイン中はプロフィールの記録も見る（TUT-03）。
+  // 別の端末で完走していても「もう一度」と出したい
+  const tutorialCleared =
+    clearedOnThisDevice || profile?.tutorialCompletedAt !== undefined;
 
   // 規約バージョンが上がった既存ユーザーを再合意画面へ誘導する（REL-03）
   useEffect(() => {
@@ -212,7 +221,11 @@ export default function HomePage() {
   );
 
   return (
-    <main className="min-h-screen bg-page px-5 py-12 sm:py-20">
+    <div className="flex min-h-screen flex-col bg-page">
+      {/* チュートリアル（TUT-02）。初回だけ自動で始まる */}
+      <TutorialBar autoStart />
+      {/* 左下のキャラクターに隠れないよう、下側は広めに空けておく */}
+      <main className="flex-1 px-5 py-12 pb-36 sm:py-20">
       <div className="mx-auto max-w-xl">
         {/* ロゴ ＋ アカウント */}
         <div className="anim-float-up mb-12 flex items-center justify-between gap-3">
@@ -298,6 +311,19 @@ export default function HomePage() {
               </Link>
             )}
           </div>
+
+          {/* チュートリアル（TUT-02）。いつでもやり直せる */}
+          <button
+            onClick={() => {
+              startTutorial();
+              router.push("/new");
+            }}
+            className="mt-5 text-xs text-accent-soft underline-offset-4 hover:underline"
+          >
+            {tutorialCleared
+              ? "チュートリアルをもう一度やる →"
+              : "使い方をチュートリアルで学ぶ →"}
+          </button>
         </div>
 
         {/* 匿名マップの移行案内（INFRA-01c） */}
@@ -458,6 +484,9 @@ export default function HomePage() {
           </Link>
         </footer>
       </div>
-    </main>
+      </main>
+      {/* 左下に常駐するキャラクター（CHR-02）。さわると反応する */}
+      <MascotDock variant="home" />
+    </div>
   );
 }

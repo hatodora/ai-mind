@@ -101,7 +101,8 @@ export function MindMapCanvas() {
         maxZoom={2}
         style={{ background: "transparent" }}
       >
-        <Controls showInteractive={false} />
+        {/* 左下はキャラクター（CHR-02）の定位置なので、拡大縮小は右下へ */}
+        <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
     </div>
   );

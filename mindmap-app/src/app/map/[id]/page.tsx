@@ -8,6 +8,8 @@ import { getRepo } from "@/lib/repo";
 import { MindMapCanvas } from "@/components/mindmap/MindMapCanvas";
 import { ControlPanel } from "@/components/mindmap/ControlPanel";
 import { ShareModal } from "@/components/mindmap/ShareModal";
+import { MascotDock } from "@/components/character/MascotDock";
+import { TutorialBar } from "@/components/tutorial/TutorialBar";
 
 export default function MapPage({
   params,
@@ -75,7 +77,11 @@ export default function MapPage({
   }
 
   return (
-    <main className="flex h-screen flex-col bg-page sm:flex-row">
+    // 高さは画面ぴったり。チュートリアルバーが出た分だけ本体が縮むよう、
+    // 内側は vh 固定ではなく親に対する割合で持たせている
+    <div className="flex h-[100dvh] flex-col bg-page">
+      <TutorialBar />
+      <main className="flex min-h-0 flex-1 flex-col bg-page sm:flex-row">
       {/* モバイルヘッダー */}
       <header className="flex items-center justify-between gap-3 bg-page px-4 py-3 sm:hidden">
         <Link
@@ -107,7 +113,7 @@ export default function MapPage({
       {/* パネル: モバイルではボトムシート、デスクトップではサイドバー。
           状態が分裂しないよう ControlPanel は1インスタンスのみマウントする */}
       <div
-        className={`order-3 rounded-t-[24px] bg-page shadow-[0_-8px_30px_-8px_rgba(0,0,0,0.6)] max-sm:h-[60vh] sm:order-1 sm:block sm:h-screen sm:w-[310px] sm:shrink-0 sm:rounded-none sm:border-r sm:border-line sm:shadow-none ${
+        className={`order-3 rounded-t-[24px] bg-page shadow-[0_-8px_30px_-8px_rgba(0,0,0,0.6)] max-sm:h-[60%] sm:order-1 sm:block sm:h-full sm:w-[310px] sm:shrink-0 sm:rounded-none sm:border-r sm:border-line sm:shadow-none ${
           panelOpen ? "block" : "hidden"
         }`}
       >
@@ -138,7 +144,7 @@ export default function MapPage({
             </span>
           )}
         </div>
-        <div className="h-[calc(100%-1.25rem)] sm:h-[calc(100vh-3.5rem)]">
+        <div className="h-[calc(100%-1.25rem)] sm:h-[calc(100%-3.5rem)]">
           <ControlPanel />
         </div>
       </div>
@@ -150,6 +156,13 @@ export default function MapPage({
 
       {/* 共同編集の共有モーダル（NF-01a） */}
       {shareOpen && <ShareModal onClose={() => setShareOpen(false)} />}
-    </main>
+      </main>
+      {/* キャラクター（CHR-02）。モバイルでは操作パネルと重なるので、
+          パネルを閉じているときだけ出す */}
+      <MascotDock
+        variant="editor"
+        className={panelOpen ? "max-sm:hidden" : ""}
+      />
+    </div>
   );
 }

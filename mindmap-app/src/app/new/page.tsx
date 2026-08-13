@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMindMapStore } from "@/store/mindmap-store";
 import { useAuth } from "@/contexts/AuthContext";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
+import { TutorialBar } from "@/components/tutorial/TutorialBar";
+import { completeMission } from "@/store/tutorial-store";
 
 const EXAMPLES = [
   "転職について考えたい",
@@ -20,17 +22,26 @@ export default function NewMapPage() {
   const [theme, setTheme] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // ミッション「新しいマップを作成する」（TUT-02）。
+  // ここへ来られた時点で達成。押した場所（ホーム・メニュー）を問わない
+  useEffect(() => {
+    completeMission("open_new");
+  }, []);
+
   const handleCreate = () => {
     // 二重クリック・Enter連打によるマップ重複作成を防ぐ
     if (creating || !theme.trim()) return;
     setCreating(true);
     // プロフィールの既定レベルを引き継ぐ（未設定なら標準）
     const map = create(theme.trim(), profile?.assistLevel ?? DEFAULT_ASSIST_LEVEL);
+    completeMission("set_theme");
     router.push(`/map/${map.id}`);
   };
 
   return (
-    <main className="min-h-screen bg-page px-5 py-10 sm:py-16">
+    <div className="flex min-h-screen flex-col bg-page">
+      <TutorialBar />
+      <main className="flex-1 px-5 py-10 sm:py-16">
       <div className="mx-auto max-w-md">
         <button
           onClick={() => router.back()}
@@ -84,6 +95,7 @@ export default function NewMapPage() {
           </button>
         </div>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

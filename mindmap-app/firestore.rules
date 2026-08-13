@@ -38,7 +38,7 @@ service cloud.firestore {
         return d.keys().hasOnly(
             ['uid', 'email', 'displayName', 'age', 'birthDate', 'birthDateEdits',
              'photoURL', 'assistLevel', 'personality', 'showNameInCommunity',
-             'termsVersion', 'termsAcceptedAt',
+             'termsVersion', 'termsAcceptedAt', 'tutorialCompletedAt',
              'role', 'createdAt', 'updatedAt'])
           && d.uid == uid
           // email は認証トークンと一致するもののみ（他人のアドレスを保存できない）
@@ -64,7 +64,18 @@ service cloud.firestore {
           && (!('termsVersion' in d)
               || (d.termsVersion is int && d.termsVersion >= 1))
           && (!('termsAcceptedAt' in d) || d.termsAcceptedAt is number)
+          && (!('tutorialCompletedAt' in d) || d.tutorialCompletedAt is number)
           && d.createdAt is number && d.updatedAt is number;
+      }
+      // チュートリアル完走の記録は一度きり（TUT-03）。
+      // 2回目以降のクリアで上書きさせない。プロフィール保存が全置換なので、
+      // うっかり項目を落として消してしまう事故もここで弾ける。
+      function tutorialClearImmutable() {
+        let had = resource != null && 'tutorialCompletedAt' in resource.data;
+        let d = request.resource.data;
+        return !had
+          || (('tutorialCompletedAt' in d)
+              && d.tutorialCompletedAt == resource.data.tutorialCompletedAt);
       }
       // 一般ユーザーは自分を admin に昇格できない
       function roleUnchanged() {
@@ -97,7 +108,7 @@ service cloud.firestore {
                         && birthDateEditsOk())
                     || isAdmin();
       allow update: if (isSelf() && validUser() && roleUnchanged()
-                        && birthDateEditsOk())
+                        && birthDateEditsOk() && tutorialClearImmutable())
                     || isAdmin();
       allow delete: if isSelf() || isAdmin();
 

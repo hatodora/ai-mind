@@ -11,27 +11,34 @@ import {
   isEarned,
   type ThinkStats,
 } from "@/lib/badges";
+import { useTutorialHydrate, useTutorialStore } from "@/store/tutorial-store";
 
 /**
  * バッジ一覧（UP-01）。獲得済み・未獲得をまとめて確認できる。
  * 将来はお気に入りバッジをホーム画面へ掲載できるようにする予定。
  */
 export default function BadgesPage() {
-  const { initializing } = useAuth();
+  const { initializing, profile } = useAuth();
   const [stats, setStats] = useState<ThinkStats | null>(null);
+  // チュートリアル完走（TUT-03）はマップから導けないので別に見る。
+  // 端末の記録と、別端末でも残るプロフィールの記録のどちらかがあれば獲得
+  const tutorialHydrated = useTutorialHydrate();
+  const clearedOnThisDevice = useTutorialStore((s) => s.clearedAt !== null);
+  const tutorialCleared =
+    clearedOnThisDevice || profile?.tutorialCompletedAt !== undefined;
 
   useEffect(() => {
-    if (initializing) return;
+    if (initializing || !tutorialHydrated) return;
     const t = setTimeout(async () => {
       try {
-        setStats(computeStats(await getRepo().list()));
+        setStats(computeStats(await getRepo().list(), tutorialCleared));
       } catch (e) {
         console.error("バッジの集計に失敗しました", e);
-        setStats(computeStats([]));
+        setStats(computeStats([], tutorialCleared));
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [initializing]);
+  }, [initializing, tutorialHydrated, tutorialCleared]);
 
   if (initializing || !stats) {
     return (

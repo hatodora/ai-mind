@@ -109,6 +109,10 @@ firebase deploy --only firestore:rules,functions
 > ⚠️ Firebase ローカル認証が必要。
 > `firebase login` で接続していることを確認
 
+> 📌 **チュートリアル完走バッジ（TUT-03）を端末をまたいで残すには、
+> このルール更新が要る**（`users` に `tutorialCompletedAt` を許可する変更）。
+> 未デプロイでもアプリは壊れず、バッジはその端末のみの記録で表示される。
+
 ---
 
 #### ✅ 3-2. Firebase で承認済みドメインに本番ドメインを追加（**必須**）

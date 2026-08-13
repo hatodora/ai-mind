@@ -17,7 +17,7 @@ import {
   signOut as fbSignOut,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import {
   firebaseAuth,
   firebaseDb,
@@ -72,6 +72,11 @@ interface AuthState {
      */
     acceptedTermsVersion?: number;
   }) => Promise<void>;
+  /**
+   * チュートリアル完走をプロフィールへ記録する（TUT-03）。
+   * 初回のみ。すでに記録済み・未ログインなら何もしない。
+   */
+  markTutorialCleared: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -211,6 +216,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           input.showNameInCommunity ?? profile?.showNameInCommunity ?? false,
         ...(termsVersion !== undefined ? { termsVersion } : {}),
         ...(termsAcceptedAt !== undefined ? { termsAcceptedAt } : {}),
+        // 保存は全置換なので、この画面が扱わない項目も引き継がないと消える
+        ...(profile?.tutorialCompletedAt !== undefined
+          ? { tutorialCompletedAt: profile.tutorialCompletedAt }
+          : {}),
         role: profile?.role ?? "user",
         createdAt: profile?.createdAt ?? now,
         updatedAt: now,
@@ -220,6 +229,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [profile],
   );
+
+  const markTutorialCleared = useCallback(async () => {
+    const u = firebaseAuth().currentUser;
+    // 記録できるのはプロフィールを持つ本人だけ。
+    // 2回目以降は書かない（ルール側でも上書きを禁じている）
+    if (!u || !profile || profile.tutorialCompletedAt !== undefined) return;
+    const tutorialCompletedAt = Date.now();
+    // 差分更新にして、他の画面が持っている項目を巻き込まないようにする
+    await updateDoc(doc(firebaseDb(), "users", u.uid), {
+      tutorialCompletedAt,
+      updatedAt: Date.now(),
+    });
+    setProfile({ ...profile, tutorialCompletedAt });
+  }, [profile]);
 
   const needsVerification = !!user && isPasswordUser(user) && !user.emailVerified;
   const needsProfile = !!user && !needsVerification && !profile;
@@ -242,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resendVerification,
         refreshUser,
         saveProfile,
+        markTutorialCleared,
       }}
     >
       {children}

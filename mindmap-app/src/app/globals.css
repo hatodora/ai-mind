@@ -163,6 +163,151 @@ body {
   animation: adoptFlash 0.9s ease-out both;
 }
 
+/* ============ オリジナルキャラクター（CHR-01） ============ */
+/* SVG の一部だけを動かすので、変形の基準を各要素自身にそろえる。
+   腕を振るときだけは肩を軸にしたいので、この指定から外してある */
+.mascot-breathe,
+.mascot-snore,
+.mascot-eyes,
+.mascot-laptop,
+.mascot-zzz {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mascot-battery {
+  font-family: var(--font-satoshi), sans-serif;
+  font-weight: 700;
+}
+
+@keyframes mascotBreathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+/* 寝ているときは呼吸を深くゆっくりに */
+@keyframes mascotSnore {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(1.5px) scale(1.03);
+  }
+}
+
+/* まぶたの代わりに目を縦につぶす */
+@keyframes mascotBlink {
+  0%,
+  91%,
+  100% {
+    transform: scaleY(1);
+  }
+  94%,
+  96% {
+    transform: scaleY(0.06);
+  }
+}
+
+@keyframes mascotWave {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-20deg);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
+}
+
+@keyframes mascotType {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+@keyframes mascotZzz {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.7);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(9px, -20px) scale(1.15);
+  }
+}
+
+/* 嫌がったときの身震い。1回だけ再生する */
+@keyframes mascotShake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  15% {
+    transform: translateX(-4px) rotate(-4deg);
+  }
+  45% {
+    transform: translateX(4px) rotate(4deg);
+  }
+  75% {
+    transform: translateX(-2px) rotate(-2deg);
+  }
+}
+
+.mascot-breathe {
+  animation: mascotBreathe 4s ease-in-out infinite;
+}
+.mascot-snore {
+  animation: mascotSnore 5s ease-in-out infinite;
+}
+.mascot-eyes {
+  animation: mascotBlink 5s ease-in-out infinite;
+}
+.mascot-wave-arm {
+  /* 肩の座標を軸に回す。基準点は SVG 側の style 属性で指定している */
+  transform-box: view-box;
+  animation: mascotWave 0.85s ease-in-out infinite;
+}
+.mascot-laptop {
+  animation: mascotType 0.7s ease-in-out infinite;
+}
+.mascot-zzz {
+  animation: mascotZzz 2.6s ease-out infinite;
+}
+.mascot-shake {
+  animation: mascotShake 0.45s ease-in-out;
+}
+
+/* 動きが苦手な人には止めて見せる（見た目の情報は失わない） */
+@media (prefers-reduced-motion: reduce) {
+  .mascot-breathe,
+  .mascot-snore,
+  .mascot-eyes,
+  .mascot-wave-arm,
+  .mascot-laptop,
+  .mascot-shake {
+    animation: none;
+  }
+  .mascot-zzz {
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
 .typing-dot {
   width: 6px;
   height: 6px;

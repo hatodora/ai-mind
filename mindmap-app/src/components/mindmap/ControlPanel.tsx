@@ -26,6 +26,9 @@ import {
 } from "@/lib/ai-persona";
 import { canPostToCommunity } from "@/lib/community";
 import { hasUsedHelper, markHelperUsed } from "@/lib/helper-usage";
+import { completeMission } from "@/store/tutorial-store";
+import { useMascotStore } from "@/store/mascot-store";
+import { TUTORIAL_NODE_GOAL } from "@/lib/tutorial";
 import { Celebration } from "./Celebration";
 import { PublishModal } from "./PublishModal";
 
@@ -263,6 +266,24 @@ export function ControlPanel() {
     prevNodeCountRef.current = null;
   }, [mapId]);
 
+  // キャラクターに画面の状況を伝える（CHR-02）。
+  // AIの応答待ちは本を読み、入力中はPCに向かい、行き詰まりは瞑想する
+  const setContextPose = useMascotStore((s) => s.setContextPose);
+  useEffect(() => {
+    setContextPose(
+      loading !== null
+        ? "read"
+        : input.trim().length > 0
+          ? "work"
+          : stalled
+            ? "meditate"
+            : null,
+    );
+  }, [loading, input, stalled, setContextPose]);
+
+  // 画面を離れたら状況の指定を外す（ホームの待機モーションに戻す）
+  useEffect(() => () => setContextPose(null), [setContextPose]);
+
   // お助け機能の消費済み判定（NF-04改）。マップごとに保持する。
   // localStorage の読み取りはブラウザでしかできないので、
   // 描画中ではなく次のティックで反映する（サーバー描画との食い違いを避ける）
@@ -298,6 +319,11 @@ export function ControlPanel() {
     addNode(selected.id, input.trim(), "user");
     setInput("");
     touch();
+    // ミッション「ノードをN個広げる」（TUT-02）。
+    // 追加後の数で判定するので、いま見えている数に1を足す
+    if (userNodeCount + 1 >= TUTORIAL_NODE_GOAL) {
+      completeMission("add_nodes");
+    }
   };
 
   /**
@@ -347,6 +373,8 @@ export function ControlPanel() {
       noteAIRequest();
       setAISuggestions(suggestions);
       setTurn("ai");
+      // ミッション「AIにアドバイスを聞く」（TUT-02）
+      completeMission("ask_ai");
       // お助け機能（NF-04改）は成功した時点で消費とする
       // （失敗で1回を失わせない）
       if (free) {
@@ -463,6 +491,8 @@ export function ControlPanel() {
           })
           .filter((c) => c.nodeIds.length > 0),
       );
+      // ミッション「結論を出す」（TUT-02）
+      completeMission("review");
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
@@ -508,6 +538,9 @@ export function ControlPanel() {
       subtitle: "おつかれさま。良い思索でした",
     });
     touch();
+    // ミッション「マップを完成させる」（TUT-02）。
+    // これが最後なので、達成した瞬間に完走演出へつながる
+    completeMission("complete");
   };
 
   return (
