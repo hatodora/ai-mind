@@ -179,15 +179,9 @@ export function MascotDock({
         onClick={handleTap}
         aria-label={label}
         aria-expanded={variant === "editor" ? menuOpen : undefined}
-        className={`pointer-events-auto block w-[62px] text-ink/80 transition-transform hover:scale-105 active:scale-95 sm:w-[80px] ${
+        className={`pointer-events-auto block w-[72px] transition-transform hover:scale-105 active:scale-95 sm:w-[94px] ${
           shake ? "mascot-shake" : ""
         }`}
-        // キャンバスの上に置くので、塗りつぶし色は下地に合わせる
-        style={
-          variant === "editor"
-            ? ({ "--mascot-fill": "var(--canvas)" } as React.CSSProperties)
-            : undefined
-        }
       >
         <Mascot pose={pose} />
       </button>
