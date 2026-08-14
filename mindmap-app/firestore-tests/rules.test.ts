@@ -512,3 +512,137 @@ describe("Cloud Functions専用コレクション（invites / aiCache / system�
     await assertFails(adminDb.doc("system/aiUsage").get());
   });
 });
+
+/**
+ * 2要素認証（MFA-01）。
+ *
+ * 画面で隠すだけでは意味がない（IDトークンを直接使えば Firestore を叩ける）ので、
+ * ここで «ルールが実際に止めているか» を確かめる。
+ */
+describe("2要素認証", () => {
+  /** 2要素認証を有効にしていて、最後に通したのが sinceMs 前のトークン */
+  function mfaCtx(uid: string, sinceMs: number | null) {
+    return verifiedCtx(uid, {
+      mfaRequired: true,
+      ...(sinceMs === null ? {} : { mfa: now() - sinceMs }),
+    });
+  }
+
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("有効にしていない人には何も課さない", async () => {
+    // 希望者のみの機能。使っていない大多数の邪魔をしてはいけない
+    const ctx = verifiedCtx("plain");
+    await assertSucceeds(
+      ctx.firestore().doc("users/plain").set(validUserDoc("plain")),
+    );
+  });
+
+  it("有効にしていて、まだ一度も通していなければ拒否する", async () => {
+    const ctx = mfaCtx("mfa1", null);
+    await assertFails(
+      ctx.firestore().doc("users/mfa1").set(validUserDoc("mfa1")),
+    );
+  });
+
+  it("直近に通していれば通常どおり操作できる", async () => {
+    const ctx = mfaCtx("mfa2", 60 * 1000);
+    await assertSucceeds(
+      ctx.firestore().doc("users/mfa2").set(validUserDoc("mfa2")),
+    );
+  });
+
+  it("30日を過ぎた検証では拒否する", async () => {
+    const ctx = mfaCtx("mfa3", 31 * DAY);
+    await assertFails(
+      ctx.firestore().doc("users/mfa3").set(validUserDoc("mfa3")),
+    );
+  });
+
+  it("29日前の検証はまだ通る", async () => {
+    const ctx = mfaCtx("mfa4", 29 * DAY);
+    await assertSucceeds(
+      ctx.firestore().doc("users/mfa4").set(validUserDoc("mfa4")),
+    );
+  });
+
+  it("マップの読み書きも止まる（プロフィールだけの話ではない）", async () => {
+    // マップの中身こそ守りたいもの。ここが素通りしては意味がない
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc("maps/m1").set({
+        id: "m1",
+        ownerId: "mfa5",
+        theme: "テーマ",
+        nodes: [],
+        edges: [],
+        createdAt: now(),
+        updatedAt: now(),
+        visibility: "private",
+        sharedWith: {},
+      });
+    });
+    const stale = mfaCtx("mfa5", 31 * DAY);
+    await assertFails(stale.firestore().doc("maps/m1").get());
+    await assertFails(
+      stale.firestore().doc("maps/m1").update({ theme: "書き換え" }),
+    );
+
+    const fresh = mfaCtx("mfa5", 60 * 1000);
+    await assertSucceeds(fresh.firestore().doc("maps/m1").get());
+  });
+
+  it("mfa クレームが数値でなければ通っていない扱いにする", async () => {
+    // 型まで保証されるわけではない。文字列で比較が壊れて素通りしないこと
+    const ctx = verifiedCtx("mfa6", { mfaRequired: true, mfa: "9999999999999" });
+    await assertFails(
+      ctx.firestore().doc("users/mfa6").set(validUserDoc("mfa6")),
+    );
+  });
+
+  it("有効／無効の設定は本人でも書き換えられない", async () => {
+    // 書けてしまうと、パスワードを盗んだ相手が自分で無効化して締め出しを解ける
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc("users/mfa7").set(
+        validUserDoc("mfa7", { twoFactorEnabled: true, twoFactorEnabledAt: now() }),
+      );
+    });
+    const ctx = mfaCtx("mfa7", 60 * 1000);
+    await assertFails(
+      ctx.firestore().doc("users/mfa7").update({ twoFactorEnabled: false }),
+    );
+    // 項目ごと落として消すのも禁止（プロフィール保存は全置換なので起こりうる）
+    await assertFails(
+      ctx.firestore().doc("users/mfa7").set(validUserDoc("mfa7")),
+    );
+    // 同じ値をそのまま送り返すのは許す（全置換の保存が通らないと困る）
+    await assertSucceeds(
+      ctx.firestore().doc("users/mfa7").set(
+        validUserDoc("mfa7", {
+          twoFactorEnabled: true,
+          twoFactorEnabledAt: (
+            await ctx.firestore().doc("users/mfa7").get()
+          ).data()!.twoFactorEnabledAt,
+          displayName: "名前だけ変える",
+        }),
+      ),
+    );
+  });
+
+  it("新規作成のときに「有効」を名乗れない", async () => {
+    const ctx = verifiedCtx("mfa8");
+    await assertFails(
+      ctx
+        .firestore()
+        .doc("users/mfa8")
+        .set(validUserDoc("mfa8", { twoFactorEnabled: true })),
+    );
+  });
+
+  it("コードの置き場はクライアントから一切触れない", async () => {
+    const ctx = verifiedCtx("mfa9");
+    await assertFails(ctx.firestore().doc("twoFactorChallenges/mfa9").get());
+    await assertFails(
+      ctx.firestore().doc("twoFactorChallenges/mfa9").set({ codeHash: "x" }),
+    );
+  });
+});

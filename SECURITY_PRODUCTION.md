@@ -232,10 +232,72 @@ ENFORCE_APP_CHECK=false
 # レートリミット（REL-06）
 AI_DAILY_LIMIT=120
 AI_GLOBAL_DAILY_LIMIT=3000
+
+# 2要素認証のメール送信（MFA-02）
+# resend にしないと、6桁コードは «Functions のログに出るだけ» になる
+MAIL_PROVIDER=resend
+MAIL_FROM=思索 / Mindmap <noreply@あなたのドメイン>
 ```
 
-> `GROQ_API_KEY` は `.env` ではなく **Secret Manager**（`defineSecret`）で管理済み。
-> 設定は `firebase functions:secrets:set GROQ_API_KEY`。
+> `GROQ_API_KEY` と `RESEND_API_KEY` は `.env` ではなく
+> **Secret Manager**（`defineSecret`）で管理する。
+> 設定は `firebase functions:secrets:set GROQ_API_KEY` /
+> `firebase functions:secrets:set RESEND_API_KEY`。
+
+---
+
+## 5-2. 2要素認証のメール送信（MFA）
+
+### なぜ自前で作っているか
+
+Firebase Authentication の多要素認証は Identity Platform（有料）が要るうえ、
+SMS と TOTP しか無く、**メールの6桁コードは提供されていない**。
+そのためアプリ側で実装している。
+
+画面を隠すだけでは意味がない（IDトークンさえあれば Firestore を直接叩ける）ので、
+実際の境界は**カスタムクレームとセキュリティルール**で作ってある。
+
+| クレーム | 意味 |
+|---|---|
+| `mfaRequired` | この利用者は2要素認証を有効にしている |
+| `mfa` | 最後に6桁コードを通した時刻（ミリ秒） |
+
+ルールは `request.auth.token` のこの2つだけを見る（追加の読み取りが要らない）。
+どちらも Admin SDK でしか付けられないので、クライアントから偽装できない。
+
+### Resend の設定
+
+1. <https://resend.com> でアカウントを作る（無料枠 3,000通/月・100通/日）
+2. API キーを発行する
+3. `firebase functions:secrets:set RESEND_API_KEY` で登録する
+4. `functions/.env` に `MAIL_PROVIDER=resend` を書く
+5. 独自ドメインを使う場合は Resend でドメインを認証し、`MAIL_FROM` を設定する
+
+> **ドメイン認証をしないうちは、自分のアカウントのアドレス宛にしか送れない。**
+> 試すだけなら `MAIL_FROM` を省略して `onboarding@resend.dev` のままでよい。
+> 一般公開する前には必ずドメイン認証を済ませること。
+
+### 設定しないとどうなるか
+
+`MAIL_PROVIDER` が未設定なら `console` として動き、
+6桁コードは **Cloud Functions のログに出るだけ**になる。
+アプリは壊れないが、利用者はコードを受け取れないので
+**2要素認証を有効にした人がログインできなくなる**。
+公開前に必ず送信経路を通しておくこと。
+
+### 上限
+
+| 項目 | 値 |
+|---|---|
+| コードの有効期限 | 10分 |
+| 間違えられる回数 | 5回（超えたら再送が必要） |
+| 再送の間隔 | 60秒 |
+| 発行できる回数 | 1時間に5回 |
+| 再検証を求める間隔 | 30日 |
+| 有効／無効の切り替えに求める直近の検証 | 10分以内 |
+
+コードは平文で保存していない（scrypt でハッシュ化）。
+置き場の `twoFactorChallenges/{uid}` はクライアントから読み書き一切不可。
 
 ---
 
@@ -244,7 +306,11 @@ AI_GLOBAL_DAILY_LIMIT=3000
 公開前に上から順に潰していく。
 
 - [ ] Firestore ルールをデプロイ（`firebase deploy --only firestore:rules`）
-- [ ] Cloud Functions をデプロイ（`deleteAccount` と新レートリミットを含む）
+- [ ] Cloud Functions をデプロイ（`deleteAccount`・新レートリミット・2要素認証を含む）
+- [ ] **2要素認証**: Resend の API キーを Secret に登録（`firebase functions:secrets:set RESEND_API_KEY`）
+- [ ] **2要素認証**: `functions/.env` に `MAIL_PROVIDER=resend` を設定して再デプロイ
+- [ ] **2要素認証**: 独自ドメインを Resend で認証し `MAIL_FROM` を設定
+- [ ] **2要素認証**: 自分のアカウントで有効化 → ログアウト → 再ログインで6桁を要求されることを実測
 - [ ] 本番に `NEXT_PUBLIC_AI_BACKEND` を **設定していない**ことを確認（既定で Functions 経由）
 - [ ] 未認証 AI 経路が本番で閉じていることを確認（`/api/ai/suggest` に POST して 403）
 - [ ] reCAPTCHA v3 のキーを取得し、Firebase App Check に登録

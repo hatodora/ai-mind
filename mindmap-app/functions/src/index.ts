@@ -22,11 +22,21 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import Groq from "groq-sdk";
 import { reportError, reportEvent } from "./observability";
+import {
+  handleSetTwoFactorEnabled,
+  handleStartTwoFactor,
+  handleVerifyTwoFactor,
+} from "./two-factor";
 
 initializeApp();
 const db = getFirestore();
 
 const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
+/**
+ * メール送信（MFA-02）。MAIL_PROVIDER=resend のときだけ使う。
+ * 未設定でもデプロイは通り、その場合はコードがログに出るだけになる
+ */
+const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const MODEL_NAME = "llama-3.3-70b-versatile";
 const REGION = "asia-northeast1";
 
@@ -831,4 +841,33 @@ CATEGORIES: [{"name":"トピック名","nodes":["ラベルA","ラベルB"]}]`;
     const { review, usedNodeLabels, categories } = splitReviewResponse(text);
     return { review, usedNodeLabels, categories };
   },
+);
+
+// ---------- 2要素認証（MFA-02） ----------
+// 中身は two-factor.ts。ここは公開する入口の定義だけにしておく。
+//
+// AI 用のレートリミット（enforceRateLimit）は通していない。
+// 認証を通る前の操作なので、AI の残量を消費させるのは筋が違う。
+// 送信・照合それぞれの上限は two-factor.ts の中で見ている。
+//
+// RESEND_API_KEY は MAIL_PROVIDER=resend のときだけ要る。
+// 未設定でもデプロイでき、その場合はコードがログに出るだけになる。
+
+export const startTwoFactor = onCall(
+  {
+    region: REGION,
+    enforceAppCheck: ENFORCE_APP_CHECK,
+    secrets: [RESEND_API_KEY],
+  },
+  (request) => handleStartTwoFactor(request),
+);
+
+export const verifyTwoFactor = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  (request) => handleVerifyTwoFactor(request),
+);
+
+export const setTwoFactorEnabled = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  (request) => handleSetTwoFactorEnabled(request),
 );

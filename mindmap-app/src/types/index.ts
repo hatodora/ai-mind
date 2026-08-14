@@ -118,6 +118,16 @@ export interface UserProfile {
    * 2回目以降のクリアでは上書きしない（ルール側でも変更を禁じている）。
    */
   tutorialCompletedAt?: number;
+  /**
+   * 2要素認証（メール6桁コード）を有効にしているか（MFA-01）。既定は未設定＝オフ。
+   *
+   * この2つはクライアントから書き換えられない（ルールで不変を強制）。
+   * 書けてしまうと、パスワードを盗んだ相手が自分で無効化できてしまう。
+   * 実際の切り替えは Cloud Functions の setTwoFactorEnabled で行い、
+   * そこで直前の検証を必須にしている。
+   */
+  twoFactorEnabled?: boolean;
+  twoFactorEnabledAt?: number;
   role: "user" | "admin";
   createdAt: number;
   updatedAt: number;

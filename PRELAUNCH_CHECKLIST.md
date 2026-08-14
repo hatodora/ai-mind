@@ -113,6 +113,12 @@ firebase deploy --only firestore:rules,functions
 > このルール更新が要る**（`users` に `tutorialCompletedAt` を許可する変更）。
 > 未デプロイでもアプリは壊れず、バッジはその端末のみの記録で表示される。
 
+> ⚠️ **2要素認証（MFA）を使うなら、ルールと Functions の両方が要る。**
+> ルールが古いままだと、有効にした人の締め出しが効かない（画面は出るが素通りする）。
+> さらに `MAIL_PROVIDER=resend` と `RESEND_API_KEY` を設定していないと、
+> 6桁コードが Functions のログに出るだけになり、**利用者は受け取れない**。
+> 手順は [SECURITY_PRODUCTION.md](SECURITY_PRODUCTION.md) の 5-2 を参照。
+
 ---
 
 #### ✅ 3-2. Firebase で承認済みドメインに本番ドメインを追加（**必須**）

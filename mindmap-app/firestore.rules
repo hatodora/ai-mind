@@ -18,9 +18,26 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    // メール確認済み = 2段階確認完了ユーザーのみ実質的な操作を許可
+    // 2要素認証（MFA-01）。カスタムクレームだけで判定するので、
+    // ルールの評価に追加のドキュメント読み取りが要らない。
+    //   mfaRequired: この利用者は2要素認証を有効にしている
+    //   mfa:         最後に6桁コードを通した時刻（ミリ秒）
+    // どちらも Admin SDK でしか付けられない＝クライアントから偽装できない。
+    //
+    // 有効にしていない人には何も課さない（希望者のみの機能）。
+    // 有効な人は、直近30日以内に通していなければ実質的な操作をすべて拒否する。
+    // 画面側で隠すだけだと、IDトークンを直接使って Firestore を叩けてしまう。
+    function mfaSatisfied() {
+      return request.auth.token.mfaRequired != true
+        || (request.auth.token.mfa is number
+            && request.auth.token.mfa > request.time.toMillis() - 2592000000);
+    }
+    // メール確認済み = 2段階確認完了ユーザーのみ実質的な操作を許可。
+    // 2要素認証を有効にしている人は、その検証も生きていること
     function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && mfaSatisfied();
     }
     // 開発・運用ユーザー（カスタムクレーム）。一般フローとは別枠
     function isAdmin() {
@@ -39,6 +56,7 @@ service cloud.firestore {
             ['uid', 'email', 'displayName', 'age', 'birthDate', 'birthDateEdits',
              'photoURL', 'assistLevel', 'personality', 'showNameInCommunity',
              'termsVersion', 'termsAcceptedAt', 'tutorialCompletedAt',
+             'twoFactorEnabled', 'twoFactorEnabledAt',
              'role', 'createdAt', 'updatedAt'])
           && d.uid == uid
           // email は認証トークンと一致するもののみ（他人のアドレスを保存できない）
@@ -77,6 +95,27 @@ service cloud.firestore {
           || (('tutorialCompletedAt' in d)
               && d.tutorialCompletedAt == resource.data.tutorialCompletedAt);
       }
+      // 2要素認証の有効／無効はクライアントから触らせない（MFA-01）。
+      // 書けてしまうと、パスワードを盗んだ相手が自分で «無効» に書き換えて
+      // 締め出しを解除できてしまい、機能そのものが意味を失う。
+      // 切り替えは Cloud Functions（Admin SDK はルールを通らない）だけが行い、
+      // そこで直前の6桁コード検証を必須にしている。
+      //
+      // プロフィール保存は全置換なので «同じ値をそのまま送り返す» のは許す。
+      // 未設定のままにしておくのも許す（有効にしていない人）。
+      function twoFactorUnchanged() {
+        let d = request.resource.data;
+        let hadFlag = resource != null && 'twoFactorEnabled' in resource.data;
+        let hadAt = resource != null && 'twoFactorEnabledAt' in resource.data;
+        return (hadFlag
+                 ? ('twoFactorEnabled' in d
+                    && d.twoFactorEnabled == resource.data.twoFactorEnabled)
+                 : !('twoFactorEnabled' in d))
+          && (hadAt
+                 ? ('twoFactorEnabledAt' in d
+                    && d.twoFactorEnabledAt == resource.data.twoFactorEnabledAt)
+                 : !('twoFactorEnabledAt' in d));
+      }
       // 一般ユーザーは自分を admin に昇格できない
       function roleUnchanged() {
         return request.resource.data.role == 'user'
@@ -105,10 +144,14 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if (isSelf() && validUser()
                         && request.resource.data.role == 'user'
-                        && birthDateEditsOk())
+                        && birthDateEditsOk()
+                        // 新規作成時に «有効» を名乗らせない
+                        && !('twoFactorEnabled' in request.resource.data)
+                        && !('twoFactorEnabledAt' in request.resource.data))
                     || isAdmin();
       allow update: if (isSelf() && validUser() && roleUnchanged()
-                        && birthDateEditsOk() && tutorialClearImmutable())
+                        && birthDateEditsOk() && tutorialClearImmutable()
+                        && twoFactorUnchanged())
                     || isAdmin();
       allow delete: if isSelf() || isAdmin();
 
@@ -308,6 +351,14 @@ service cloud.firestore {
       }
       allow get, list, update, delete: if isAdmin();
       allow create: if isSignedIn() && validInquiry();
+    }
+
+    // ---------- twoFactorChallenges/{uid}: 6桁コード（MFA-01） ----------
+    // クライアントからは読み書き一切不可。Admin SDK（Cloud Functions）だけが触る。
+    // 保存するのはコードのハッシュ・有効期限・試行回数・最終送信時刻で、
+    // 平文のコードは残さない（漏れても再現できないようにするため）。
+    match /twoFactorChallenges/{uid} {
+      allow read, write: if false;
     }
 
     // ---------- invites: 共同編集の招待（NF-01a・Cloud Functions 専用） ----------

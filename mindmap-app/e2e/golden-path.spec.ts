@@ -203,3 +203,14 @@ test("マップ一覧が来る前に「まだマップがありません」と�
   await page.goto("/");
   await expect(page.getByText("まだマップがありません")).toHaveCount(0);
 });
+
+/**
+ * 2要素認証（MFA）。
+ * 発行と照合はサーバー側なので、ここでは未ログイン時の入口だけを見る。
+ * 実際の往復は Cloud Functions のデプロイが要る。
+ */
+
+test("未ログインで確認コード画面を開くとログインへ戻される", async ({ page }) => {
+  await page.goto("/login/verify");
+  await expect(page).toHaveURL(/\/login$/);
+});

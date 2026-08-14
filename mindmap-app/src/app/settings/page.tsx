@@ -15,6 +15,7 @@ import {
 } from "@/lib/ai-persona";
 import { BirthDatePicker } from "@/components/BirthDatePicker";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TwoFactorSetting } from "@/components/TwoFactorSetting";
 import type { AIPersonality, AssistLevel, UserProfile } from "@/types";
 
 /** AIアシスト既定レベルの選択肢（UP-02） */
@@ -267,6 +268,10 @@ function SettingsForm({
               );
             })}
           </div>
+
+          {/* 2要素認証（MFA-04）。プロフィールの «保存する» とは独立して、
+              その場でサーバーと往復する */}
+          <TwoFactorSetting />
 
           {/* 表示テーマ（THM-03）。
               プロフィールではなく端末に保存するので、

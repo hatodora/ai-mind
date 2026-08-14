@@ -3,6 +3,7 @@ import { Noto_Sans_JP } from "next/font/google";
 import localFont from "next/font/local";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeSync } from "@/components/ThemeSync";
+import { TwoFactorGate } from "@/components/TwoFactorGate";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -57,7 +58,12 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeSync />
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {/* 2要素認証が済むまでコード入力へ案内する（MFA-03）。
+              守り自体はセキュリティルール側にある */}
+          <TwoFactorGate />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
