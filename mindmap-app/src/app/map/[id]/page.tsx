@@ -9,6 +9,7 @@ import { MindMapCanvas } from "@/components/mindmap/MindMapCanvas";
 import { ControlPanel } from "@/components/mindmap/ControlPanel";
 import { ShareModal } from "@/components/mindmap/ShareModal";
 import { MascotDock } from "@/components/character/MascotDock";
+import { EditorSkeleton } from "@/components/Skeleton";
 import { TutorialBar } from "@/components/tutorial/TutorialBar";
 
 export default function MapPage({
@@ -53,11 +54,7 @@ export default function MapPage({
     !!user && !!map?.ownerId && map.ownerId !== user.uid;
 
   if (initializing || !started || loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-page">
-        <div className="text-sm text-muted">読み込み中…</div>
-      </main>
-    );
+    return <EditorSkeleton />;
   }
 
   if (!map) {

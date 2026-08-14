@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PageSkeleton } from "@/components/Skeleton";
 import { doc, setDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { firebaseDb } from "@/lib/firebase";
@@ -42,7 +43,7 @@ export default function ContactPage() {
     }
   }, [initializing, user, router]);
 
-  if (initializing || !user) return null;
+  if (initializing || !user) return <PageSkeleton lines={2} />;
 
   const email = emailInput ?? user.email ?? "";
 

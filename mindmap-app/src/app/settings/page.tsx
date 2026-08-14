@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PageSkeleton } from "@/components/Skeleton";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "@/contexts/AuthContext";
 import { firebaseFunctions } from "@/lib/firebase";
@@ -68,7 +69,7 @@ export default function SettingsPage() {
     }
   }, [initializing, user, needsVerification, profile, router]);
 
-  if (initializing || !user || !profile) return null;
+  if (initializing || !user || !profile) return <PageSkeleton lines={4} />;
 
   // プロフィールが読めてからフォームをマウントし、初期値は useState で確定させる
   return (

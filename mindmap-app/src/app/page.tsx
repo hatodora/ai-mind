@@ -8,6 +8,7 @@ import { getRepo, purgeExpiredAnonMaps, createFirestoreRepo } from "@/lib/repo";
 import { storage } from "@/lib/storage";
 import { MascotDock } from "@/components/character/MascotDock";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MapCardSkeleton, SkeletonGroup } from "@/components/Skeleton";
 import { TutorialBar } from "@/components/tutorial/TutorialBar";
 import { useTutorialStore } from "@/store/tutorial-store";
 import type { MindMap } from "@/types";
@@ -140,6 +141,9 @@ export default function HomePage() {
   const { user, profile, initializing, needsProfile, needsTermsAccept, signOut } =
     useAuth();
   const [maps, setMaps] = useState<MindMap[]>([]);
+  // 一覧が «まだ来ていない» のか «本当に空» なのかを区別する（SKL-02）。
+  // 区別しないと、読み込み中に「まだマップがありません」と言い切ってしまう
+  const [loadingMaps, setLoadingMaps] = useState(true);
   const [localCount, setLocalCount] = useState(0);
   const [migrating, setMigrating] = useState(false);
   const startTutorial = useTutorialStore((s) => s.start);
@@ -163,6 +167,8 @@ export default function HomePage() {
       setMaps(await getRepo().list());
     } catch (e) {
       console.error("マップ一覧の取得に失敗しました", e);
+    } finally {
+      setLoadingMaps(false);
     }
     // ログイン済みのとき、ローカルに残っている匿名マップは移行候補
     setLocalCount(loggedIn ? storage.list().length : 0);
@@ -396,14 +402,20 @@ export default function HomePage() {
         >
           <div className="mb-4 flex items-baseline justify-between px-1">
             <span className="micro-label">これまでのマップ</span>
-            {maps.length > 0 && (
+            {!loadingMaps && maps.length > 0 && (
               <span className="font-display text-xs tracking-wide text-muted">
                 {maps.length} maps · {totalNodes} nodes
               </span>
             )}
           </div>
 
-          {maps.length === 0 ? (
+          {initializing || loadingMaps ? (
+            <SkeletonGroup label="マップを読み込んでいます" className="space-y-3">
+              <MapCardSkeleton />
+              <MapCardSkeleton />
+              <MapCardSkeleton />
+            </SkeletonGroup>
+          ) : maps.length === 0 ? (
             <div className="card-soft px-6 py-10 text-center">
               <div className="mb-1.5 font-display text-[15px] font-bold text-ink">
                 まだマップがありません

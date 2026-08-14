@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { PageSkeleton } from "@/components/Skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   TERMS_EFFECTIVE_DATE,
@@ -50,7 +51,7 @@ function TermsAcceptInner() {
     }
   }, [initializing, user, profile, nextPath, router]);
 
-  if (initializing || !user || !profile) return null;
+  if (initializing || !user || !profile) return <PageSkeleton lines={2} />;
 
   const handleAccept = async () => {
     if (!agreed || busy) return;

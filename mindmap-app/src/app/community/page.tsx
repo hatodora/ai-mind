@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import {
+  PageSkeleton,
+  PostCardSkeleton,
+  SkeletonGroup,
+} from "@/components/Skeleton";
 import type { QueryDocumentSnapshot } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -81,11 +86,7 @@ export default function CommunityPage() {
   }, [loggedIn, tab, bookmarks, user]);
 
   if (initializing) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-page">
-        <div className="text-sm text-muted">読み込み中…</div>
-      </main>
-    );
+    return <PageSkeleton lines={2} />;
   }
 
   if (!loggedIn) {
@@ -209,9 +210,13 @@ export default function CommunityPage() {
               </ul>
             )}
             {loading && (
-              <p className="mt-5 text-center text-xs text-muted">
-                読み込み中…
-              </p>
+              <SkeletonGroup
+                label="投稿を読み込んでいます"
+                className="mt-3 space-y-3"
+              >
+                <PostCardSkeleton />
+                <PostCardSkeleton />
+              </SkeletonGroup>
             )}
             {hasMore && !loading && (
               <button

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BadgeGridSkeleton } from "@/components/Skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRepo } from "@/lib/repo";
 import {
@@ -41,11 +42,7 @@ export default function BadgesPage() {
   }, [initializing, tutorialHydrated, tutorialCleared]);
 
   if (initializing || !stats) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-page">
-        <div className="text-sm text-muted">読み込み中…</div>
-      </main>
-    );
+    return <BadgeGridSkeleton />;
   }
 
   const { earned, total } = countEarned(stats);

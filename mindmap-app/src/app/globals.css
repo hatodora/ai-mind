@@ -51,6 +51,9 @@
   /* 面と影。テーマで濃さが大きく変わるので、
      コンポーネントに直書きせずここへ集める */
   --dot: #d8d7d1;
+  /* 骨組みの面（SKL-01）。カードの上にもページ地の上にも置くので、
+     --card-raised では地との差が足りない */
+  --skeleton: #e4e3db;
   --scrim: rgba(40, 40, 34, 0.35);
   --shadow-card: 0 4px 16px rgba(60, 60, 50, 0.08);
   --shadow-pop: 0 10px 30px -10px rgba(60, 60, 50, 0.28);
@@ -91,6 +94,7 @@
   --tint-danger: rgba(248, 113, 113, 0.12);
 
   --dot: #3a3a3a;
+  --skeleton: #464646;
   --scrim: rgba(0, 0, 0, 0.6);
   --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.35);
   --shadow-pop: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
@@ -122,6 +126,7 @@
   --color-tint-danger: var(--tint-danger);
   /* モーダルの覆い。bg-scrim で使う */
   --color-scrim: var(--scrim);
+  --color-skeleton: var(--skeleton);
   --font-sans: var(--font-noto-sans-jp), sans-serif;
   --font-display: var(--font-satoshi), var(--font-noto-sans-jp), sans-serif;
 }
@@ -370,6 +375,56 @@ body {
   .mascot-zzz {
     animation: none;
     opacity: 0.9;
+  }
+}
+
+/* ============ 読み込み中の骨組み（SKL-01） ============ */
+/* 面をゆっくり明滅させるだけ。左から右へ光を流す作りにすると、
+   画面に骨組みが増えたとき動きが騒がしくなる */
+@keyframes skeletonPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.skeleton {
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+/* すぐ終わる読み込みでは骨組みを見せない。
+   出してすぐ消えるちらつきは、何も出ないより気が散る。
+
+   JS でタイマーを持つ代わりに、最初の 0.15 秒を透明にしている。
+   速く終わった読み込みでは、一度も見えないまま外れる */
+@keyframes skeletonAppear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.skeleton-fade {
+  animation: skeletonAppear 0.2s ease-out 0.15s both;
+}
+
+/* 動きが苦手な人には止めて見せる。
+   面は残るので「ここに何か出る」ことは伝わる */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    opacity: 0.7;
+  }
+  /* 遅らせるだけにして、フェードはしない。
+     animation を切ると «透明のまま» になってしまうので、
+     ここでは opacity を明示的に戻す */
+  .skeleton-fade {
+    animation: none;
   }
 }
 

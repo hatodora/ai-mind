@@ -170,3 +170,36 @@ test("開いたまま OS の設定が変わっても追従する", async ({ page
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
+
+/**
+ * 読み込み中の骨組み（SKL）。
+ * 出ている «瞬間» は目視で確かめる。ここで守りたいのは、
+ * 読み込みが終わったのに骨組みが残り続けないことのほう。
+ */
+
+test("読み込みが終わると骨組みは消え、中身に置き換わる", async ({ page }) => {
+  await page.goto("/");
+
+  // 中身が出そろったら、待ちを示す印はどこにも残っていてはいけない
+  await expect(
+    page.getByRole("heading", { name: /考えよう/ }),
+  ).toBeVisible();
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+});
+
+test("マップ一覧が来る前に「まだマップがありません」と言い切らない", async ({
+  page,
+}) => {
+  // 一覧を取り終えるまで空だと決めつけると、
+  // 毎回«無い»と言ってから中身が出る、という見え方になる
+  await page.goto("/");
+  await page.getByRole("link", { name: "新しいマップを作る" }).click();
+  await page
+    .getByPlaceholder("例: 転職について考えたい")
+    .fill(`E2E骨組み-${Date.now()}`);
+  await page.getByRole("button", { name: "マインドマップを始める" }).click();
+  await expect(page).toHaveURL(/\/map\/.+/);
+
+  await page.goto("/");
+  await expect(page.getByText("まだマップがありません")).toHaveCount(0);
+});

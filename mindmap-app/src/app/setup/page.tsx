@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PageSkeleton } from "@/components/Skeleton";
 import { useAuth, randomDisplayName } from "@/contexts/AuthContext";
 import { DEFAULT_ASSIST_LEVEL } from "@/lib/gauge";
 import { ageFromBirthDate } from "@/lib/ai-persona";
@@ -75,7 +76,7 @@ export default function SetupPage() {
     }
   };
 
-  if (initializing || !user) return null;
+  if (initializing || !user) return <PageSkeleton lines={3} />;
 
   return (
     <main className="min-h-screen bg-page px-5 py-10 sm:py-16">
