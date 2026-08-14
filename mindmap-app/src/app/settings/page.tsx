@@ -13,6 +13,7 @@ import {
   ageFromBirthDate,
 } from "@/lib/ai-persona";
 import { BirthDatePicker } from "@/components/BirthDatePicker";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { AIPersonality, AssistLevel, UserProfile } from "@/types";
 
 /** AIアシスト既定レベルの選択肢（UP-02） */
@@ -265,6 +266,17 @@ function SettingsForm({
               );
             })}
           </div>
+
+          {/* 表示テーマ（THM-03）。
+              プロフィールではなく端末に保存するので、
+              「保存する」を押さなくてもその場で効く */}
+          <label className="mb-1.5 mt-6 block text-[13px] font-bold">
+            表示テーマ
+          </label>
+          <p className="mb-2.5 text-xs leading-relaxed text-muted">
+            この端末だけの設定です。選ぶとすぐに切り替わります
+          </p>
+          <ThemeToggle />
 
           {/* コミュニティの名前表示（NF-01b）。既定はオフ＝匿名 */}
           <label className="mb-1.5 mt-6 block text-[13px] font-bold">

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import localFont from "next/font/local";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeSync } from "@/components/ThemeSync";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const notoSansJP = Noto_Sans_JP({
@@ -35,11 +37,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // data-theme はスクリプトが描画前に書き込むので、
+    // サーバの出力と食い違って当然。警告を止めておく
     <html
       lang="ja"
+      suppressHydrationWarning
       className={`${notoSansJP.variable} ${satoshi.variable} h-full antialiased`}
     >
+      <head>
+        {/*
+          最初の描画より前にテーマを確定させる（THM-02）。
+          これが無いと、既定のライトで一瞬描かれてから
+          ダークへ切り替わるちらつきが出る。
+          同期実行が要るので next/script ではなく素の script で置く。
+        */}
+        <script
+          dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
+        <ThemeSync />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

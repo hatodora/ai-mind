@@ -39,7 +39,7 @@ export function PostMapView({
         source: e.source,
         target: e.target,
         type: "default",
-        style: { stroke: "rgba(129, 216, 208, 0.4)", strokeWidth: 1.5 },
+        style: { stroke: "var(--ai-line)", strokeWidth: 1.5 },
       })),
     [postEdges],
   );

@@ -141,7 +141,7 @@ export function MascotDock({
             aria-label="メニューを閉じる"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="anim-float-up pointer-events-auto relative z-10 mb-2 w-52 overflow-hidden rounded-[14px] border border-line bg-card shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
+          <div className="anim-float-up pointer-events-auto relative z-10 mb-2 w-52 overflow-hidden rounded-[14px] border border-line bg-card shadow-[var(--shadow-pop)]">
             <button
               onClick={() => {
                 setMenuOpen(false);

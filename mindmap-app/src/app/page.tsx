@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getRepo, purgeExpiredAnonMaps, createFirestoreRepo } from "@/lib/repo";
 import { storage } from "@/lib/storage";
 import { MascotDock } from "@/components/character/MascotDock";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { TutorialBar } from "@/components/tutorial/TutorialBar";
 import { useTutorialStore } from "@/store/tutorial-store";
 import type { MindMap } from "@/types";
@@ -469,8 +470,10 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* フッター: 法務ページへの導線（REL-03/04） */}
-        <footer className="mt-16 flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-[11px] text-placeholder">
+        {/* フッター: 法務ページへの導線（REL-03/04）とテーマ切替（THM-03）。
+            テーマはログイン不要の設定なので、設定画面だけに置くと
+            未ログインの人が触れない */}
+        <footer className="mt-16 flex flex-wrap items-center gap-x-4 gap-y-3 px-1 text-[11px] text-placeholder">
           <Link href="/terms" className="hover:text-muted">
             利用規約
           </Link>
@@ -482,6 +485,7 @@ export default function HomePage() {
           <Link href="/contact" className="hover:text-muted">
             お問い合わせ
           </Link>
+          <ThemeToggle compact className="ml-auto" />
         </footer>
       </div>
       </main>

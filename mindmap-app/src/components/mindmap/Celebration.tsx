@@ -2,8 +2,13 @@
 
 import { useEffect, useRef } from "react";
 
-/** 紙吹雪の配色（デザイントークンに合わせる） */
-const COLORS = ["#0abab5", "#81d8d0", "#fbbf24", "#f5f5f5"];
+/** 紙吹雪の配色。テーマで色が変わるのでトークンをそのまま参照する */
+const COLORS = [
+  "var(--accent)",
+  "var(--accent-soft)",
+  "var(--warm)",
+  "var(--ink)",
+];
 
 const PIECES = 22;
 

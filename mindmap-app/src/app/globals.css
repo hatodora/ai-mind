@@ -1,45 +1,103 @@
 @import "tailwindcss";
 
 /* ============================================================
-   思索 / Mindmap — v2 ダークモダン デザイントークン
-   BG #2a2a2a / Text #f5f5f5 / Accent (Tiffany Blue) #0ABAB5
-   Accent Soft #81D8D0 / Radius 12px 基準 / Heading: Satoshi
+   思索 / Mindmap — デザイントークン（THM-01）
+   Accent (Tiffany Blue) #0ABAB5 / Radius 12px 基準 / Heading: Satoshi
+
+   ライトを土台として :root に全色を置き、
+   ダークは :root[data-theme="dark"] で «違うぶんだけ» 上書きする。
+
+   テーマは <head> の同期スクリプトが、描画される前に data-theme へ
+   "light" / "dark" のどちらかを必ず書き込む（THM-02）。
+   「システムに従う」もそこで解決するので、CSS 側にメディアクエリは要らない。
+   このアプリは全画面がクライアント描画で JS 無効では動かないから、
+   スクリプトが走らない場合にライト一式が残る形で困らない。
    ============================================================ */
 
 :root {
-  /* 背景レイヤー（深 → 浅） */
+  color-scheme: light;
+
+  /* 背景レイヤー（くぼみ → 浮き） */
+  --canvas: #ecebe7;
+  --page: #f6f5f2;
+  --card: #ffffff;
+  --card-raised: #f0efeb;
+  --line: #e0dfd9;
+
+  /* テキスト */
+  --ink: #24261f;
+  --muted: #6b6f63;
+  --placeholder: #9ba193;
+
+  /* ティファニーブルー。
+     --accent（塗り）は両テーマ共通だが、
+     --accent-soft は «地の上に置く文字色» という役割なので明度が逆になる */
+  --accent: #0abab5;
+  --accent-soft: #0a8f8b;
+  --accent-deep: #066e6a;
+  --on-accent: #06302e;
+
+  /* アクセント派生ティント */
+  --tint-accent: rgba(10, 186, 181, 0.1);
+  --tint-accent-strong: rgba(10, 186, 181, 0.18);
+  --ai-line: rgba(10, 186, 181, 0.55);
+
+  /* 状態色 */
+  --warm: #b7791f;
+  --tint-warm: rgba(183, 121, 31, 0.12);
+  --danger: #d43d3d;
+  --tint-danger: rgba(212, 61, 61, 0.1);
+
+  /* 面と影。テーマで濃さが大きく変わるので、
+     コンポーネントに直書きせずここへ集める */
+  --dot: #d8d7d1;
+  --scrim: rgba(40, 40, 34, 0.35);
+  --shadow-card: 0 4px 16px rgba(60, 60, 50, 0.08);
+  --shadow-pop: 0 10px 30px -10px rgba(60, 60, 50, 0.28);
+  --shadow-sheet: 0 -8px 30px -8px rgba(60, 60, 50, 0.2);
+  --shadow-accent: 0 10px 24px -10px rgba(10, 186, 181, 0.45);
+  --shadow-node-root: 0 10px 24px -8px rgba(10, 186, 181, 0.5);
+  --shadow-node-user: 0 6px 18px -8px rgba(60, 60, 50, 0.18);
+
+  /* キャラクター（CHR-01）。「白い紙にモスグリーンのペンで描いた」見立て。
+     両テーマで同じ値。暗い画面では紙色が浮き、
+     明るい画面では原画そのままの線画に見える */
+  --mascot-paper: #edefe1;
+  --mascot-ink: #38412f;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
   --canvas: #242424;
   --page: #2a2a2a;
   --card: #333333;
   --card-raised: #3a3a3a;
   --line: #424242;
 
-  /* テキスト */
   --ink: #f5f5f5;
   --muted: #a3a3a3;
   --placeholder: #6f6f6f;
 
-  /* ティファニーブルー */
-  --accent: #0abab5;
   --accent-soft: #81d8d0;
   --accent-deep: #078e8a;
   --on-accent: #10302e;
 
-  /* アクセント派生ティント（ダーク背景に混ぜる） */
-  --tint-accent: rgba(10, 186, 181, 0.1);
-  --tint-accent-strong: rgba(10, 186, 181, 0.18);
   --ai-line: rgba(129, 216, 208, 0.45);
-
-  /* 状態色 */
-  /* キャラクター（CHR-01）。「白い紙にモスグリーンのペンで描いた」見立て。
-     暗い画面でも原画の可愛さが残るよう、体は紙色で塗って線だけ濃くする */
-  --mascot-paper: #edefe1;
-  --mascot-ink: #38412f;
 
   --warm: #fbbf24;
   --tint-warm: rgba(251, 191, 36, 0.12);
   --danger: #f87171;
   --tint-danger: rgba(248, 113, 113, 0.12);
+
+  --dot: #3a3a3a;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+  --shadow-sheet: 0 -8px 30px -8px rgba(0, 0, 0, 0.6);
+  --shadow-accent: 0 10px 24px -10px rgba(10, 186, 181, 0.55);
+  --shadow-node-root: 0 10px 24px -8px rgba(10, 186, 181, 0.6);
+  --shadow-node-user: 0 6px 18px -8px rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
@@ -62,6 +120,8 @@
   --color-tint-warm: var(--tint-warm);
   --color-danger: var(--danger);
   --color-tint-danger: var(--tint-danger);
+  /* モーダルの覆い。bg-scrim で使う */
+  --color-scrim: var(--scrim);
   --font-sans: var(--font-noto-sans-jp), sans-serif;
   --font-display: var(--font-satoshi), var(--font-noto-sans-jp), sans-serif;
 }
@@ -353,7 +413,7 @@ body {
   color: var(--on-accent);
   border-radius: 12px;
   font-weight: 700;
-  box-shadow: 0 10px 24px -10px rgba(10, 186, 181, 0.55);
+  box-shadow: var(--shadow-accent);
 }
 .btn-primary:hover:not(:disabled) {
   filter: brightness(1.08);
@@ -375,7 +435,7 @@ body {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-card);
 }
 
 /* 円形アイコンボタン */
@@ -398,10 +458,10 @@ body {
   border-color: var(--accent);
 }
 
-/* キャンバスのドット方眼紙（ダーク） */
+/* キャンバスのドット方眼紙 */
 .canvas-paper {
   background-color: var(--canvas);
-  background-image: radial-gradient(#3a3a3a 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
   background-size: 22px 22px;
 }
 
@@ -412,13 +472,13 @@ body {
   animation: drawEdge 0.9s ease-out forwards;
 }
 
-/* React Flow ズームコントロールをダークカード調に
+/* React Flow ズームコントロールをカード調に
    （dist/style.css が後から読み込まれるため詳細度を上げる） */
 .react-flow .react-flow__controls {
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-pop);
 }
 .react-flow .react-flow__controls-button {
   background: var(--card);

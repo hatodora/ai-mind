@@ -122,3 +122,51 @@ test("キャラクターは常駐し、さわると手を振る", async ({ page 
     mascot.getByRole("img", { name: "手を振っているキャラクター" }),
   ).toBeVisible();
 });
+
+/**
+ * ダーク／ライトの切り替え（THM）。
+ * 見た目そのものではなく「選択が効いて、次に開いても保たれる」ことを見る。
+ */
+
+test("テーマを切り替えると、再読み込みしても保たれる", async ({ page }) => {
+  await page.goto("/");
+  const html = page.locator("html");
+
+  // 既定は端末に合わせる。Playwright の既定はライト
+  await expect(html).toHaveAttribute("data-theme", "light");
+
+  await page.getByRole("radio", { name: "ダーク" }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+
+  // 再読み込み。<head> のスクリプトが描画前に当て直す
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("radio", { name: "ダーク" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+});
+
+test("端末に合わせるを選ぶと、OS の設定に従う", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  const html = page.locator("html");
+  await expect(html).toHaveAttribute("data-theme", "dark");
+
+  // 明示的に選んだライトは、OS がダークでも勝つ
+  await page.getByRole("radio", { name: "ライト" }).click();
+  await expect(html).toHaveAttribute("data-theme", "light");
+
+  // 端末に合わせるへ戻すと、また OS 側が効く
+  await page.getByRole("radio", { name: "端末に合わせる" }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+});
+
+test("開いたまま OS の設定が変わっても追従する", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  // 「端末に合わせる」のままなので、OS が変われば画面も変わってほしい
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});

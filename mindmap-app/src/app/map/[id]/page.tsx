@@ -113,7 +113,7 @@ export default function MapPage({
       {/* パネル: モバイルではボトムシート、デスクトップではサイドバー。
           状態が分裂しないよう ControlPanel は1インスタンスのみマウントする */}
       <div
-        className={`order-3 rounded-t-[24px] bg-page shadow-[0_-8px_30px_-8px_rgba(0,0,0,0.6)] max-sm:h-[60%] sm:order-1 sm:block sm:h-full sm:w-[310px] sm:shrink-0 sm:rounded-none sm:border-r sm:border-line sm:shadow-none ${
+        className={`order-3 rounded-t-[24px] bg-page shadow-[var(--shadow-sheet)] max-sm:h-[60%] sm:order-1 sm:block sm:h-full sm:w-[310px] sm:shrink-0 sm:rounded-none sm:border-r sm:border-line sm:shadow-none ${
           panelOpen ? "block" : "hidden"
         }`}
       >

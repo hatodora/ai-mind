@@ -17,8 +17,8 @@ interface Data {
  * - ai:   アクセントティント地 × 破線＝「仮」の提案
  */
 const styleByRole: Record<NodeRole, string> = {
-  root: "bg-accent text-on-accent font-display font-bold shadow-[0_10px_24px_-8px_rgba(10,186,181,0.6)]",
-  user: "bg-card text-ink border border-line shadow-[0_6px_18px_-8px_rgba(0,0,0,0.6)]",
+  root: "bg-accent text-on-accent font-display font-bold shadow-[var(--shadow-node-root)]",
+  user: "bg-card text-ink border border-line shadow-[var(--shadow-node-user)]",
   ai: "bg-tint-accent text-accent-soft border border-dashed border-ai-line",
 };
 
