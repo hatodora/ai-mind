@@ -28,6 +28,7 @@ import { canPostToCommunity } from "@/lib/community";
 import { hasUsedHelper, markHelperUsed } from "@/lib/helper-usage";
 import { completeMission } from "@/store/tutorial-store";
 import { useMascotStore } from "@/store/mascot-store";
+import { offlineReason, useOnline } from "@/lib/offline";
 import { TUTORIAL_NODE_GOAL } from "@/lib/tutorial";
 import { Celebration } from "./Celebration";
 import { PublishModal } from "./PublishModal";
@@ -227,9 +228,14 @@ export function ControlPanel() {
   const userNodeCount = map ? countUserNodes(map.nodes) : 0;
   const unlocked = isUnlocked(userNodeCount);
   const gauge = map?.aiGauge ?? 0;
+  // AI はサーバーが要るので、オフラインでは押せなくする（OFL-03）。
+  // ノードの追加・編集・整列は端末内で完結するので、そのまま続けられる
+  const online = useOnline();
+  const offlineNote = offlineReason(online);
   const canAskAI =
     aiEnabled &&
     unlocked &&
+    online &&
     gauge >= AI_REQUEST_COST &&
     !!selected &&
     loading !== "ai";
@@ -655,11 +661,12 @@ export function ControlPanel() {
               disabled={!canAskAI}
               className="btn-lift btn-secondary mt-2 w-full py-3 text-[13px] font-bold !text-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
               title={
-                !unlocked
+                offlineNote ??
+                (!unlocked
                   ? `最初の${UNLOCK_THRESHOLD}個は自分でノードを作りましょう`
                   : gauge < AI_REQUEST_COST
                     ? "まず自分でノードを追加するとAIに相談できます"
-                    : undefined
+                    : undefined)
               }
             >
               {loading === "ai" ? (
@@ -686,7 +693,8 @@ export function ControlPanel() {
           </p>
           <button
             onClick={() => void handleRequestAI({ free: true })}
-            disabled={loading === "ai"}
+            disabled={loading === "ai" || !online}
+            title={offlineNote ?? undefined}
             className="btn-lift btn-primary rounded-[12px] px-4 py-2 text-xs disabled:opacity-40"
           >
             {loading === "ai" ? (
@@ -754,7 +762,8 @@ export function ControlPanel() {
         <div className="flex gap-2">
           <button
             onClick={handleExplain}
-            disabled={!selected || loading === "explain"}
+            disabled={!selected || loading === "explain" || !online}
+            title={offlineNote ?? undefined}
             className="btn-lift btn-secondary flex-1 py-3 text-[13px] disabled:opacity-40"
           >
             {loading === "explain" ? (
@@ -824,7 +833,8 @@ export function ControlPanel() {
 
         <button
           onClick={handleReview}
-          disabled={loading === "review" || map.nodes.length < 3}
+          disabled={loading === "review" || map.nodes.length < 3 || !online}
+          title={offlineNote ?? undefined}
           className="btn-lift btn-primary w-full py-3.5 text-[13px] disabled:opacity-40"
         >
           {loading === "review" ? (

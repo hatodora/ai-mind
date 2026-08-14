@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import localFont from "next/font/local";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { ThemeSync } from "@/components/ThemeSync";
 import { TwoFactorGate } from "@/components/TwoFactorGate";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
@@ -58,6 +60,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeSync />
+        {/* オフラインでもアプリの殻が立ち上がるようにする（OFL-02） */}
+        <ServiceWorkerRegistrar />
+        {/* オフラインの案内（OFL-03）。全画面の最上部に出す */}
+        <OfflineBanner />
         <AuthProvider>
           {/* 2要素認証が済むまでコード入力へ案内する（MFA-03）。
               守り自体はセキュリティルール側にある */}

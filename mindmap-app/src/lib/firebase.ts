@@ -5,7 +5,13 @@ import {
   type AppCheck,
 } from "firebase/app-check";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 
 /**
@@ -97,8 +103,38 @@ export function firebaseAuth(): Auth {
   return getAuth(getApp());
 }
 
+let db: Firestore | null = null;
+
+/**
+ * Firestore を取り出す。オフライン対応（OFL-01）はここで有効にしている。
+ *
+ * 自前で IndexedDB の同期層を書かず、SDK の persistentLocalCache に任せる。
+ * 読み取りのキャッシュも、オフライン中の書き込みの保留と再送も
+ * SDK 側が持っていて、復帰したときの再送順序まで面倒を見てくれる。
+ * 自作するとここを取りこぼす。
+ *
+ * 複数タブで開かれることを考えて persistentMultipleTabManager を使う。
+ * 既定の単一タブ版だと、2枚目のタブでキャッシュが無効になる。
+ *
+ * initializeFirestore は «一度だけ» 呼べる。getFirestore を先に呼ぶと
+ * 既定の設定で確定してしまうので、経路をこの関数に一本化している。
+ */
 export function firebaseDb(): Firestore {
-  return getFirestore(getApp());
+  if (db) return db;
+  const app = getApp();
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    // IndexedDB が使えない環境（プライベートモード・古い端末・
+    // すでに初期化済み）でも、オンラインでなら動くようにしておく。
+    // ここで落とすとアプリ全体が開かなくなる
+    db = getFirestore(app);
+  }
+  return db;
 }
 
 export function firebaseFunctions(): Functions {

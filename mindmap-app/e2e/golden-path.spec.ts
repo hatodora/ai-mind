@@ -214,3 +214,54 @@ test("未ログインで確認コード画面を開くとログインへ戻さ�
   await page.goto("/login/verify");
   await expect(page).toHaveURL(/\/login$/);
 });
+
+/**
+ * オフライン（OFL）。
+ * データの保留と再送は Firestore SDK が受け持つので、ここで見るのは
+ * 「オフラインでも編集を続けられること」と「AI が止まること」。
+ */
+
+test("オフラインになると案内が出て、つながると消える", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/");
+  await expect(page.getByText("オフラインです", { exact: false })).toHaveCount(0);
+
+  await context.setOffline(true);
+  await expect(
+    page.getByText("オフラインです", { exact: false }),
+  ).toBeVisible();
+
+  await context.setOffline(false);
+  await expect(page.getByText("オフラインです", { exact: false })).toHaveCount(0);
+});
+
+test("オフラインでもノードを足せるが、AI には相談できない", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "新しいマップを作る" }).click();
+  await page
+    .getByPlaceholder("例: 転職について考えたい")
+    .fill(`E2Eオフライン-${Date.now()}`);
+  await page.getByRole("button", { name: "マインドマップを始める" }).click();
+  await expect(page).toHaveURL(/\/map\/.+/);
+
+  await context.setOffline(true);
+
+  // 自分の言葉を足すのは端末内で完結するので、止めてはいけない
+  await page.getByPlaceholder("思いついた言葉…").fill("オフラインで書いた考え");
+  await page.getByRole("button", { name: "追加する" }).click();
+  await expect(
+    page.locator('[data-testid^="rf__node-"]').getByText("オフラインで書いた考え"),
+  ).toBeVisible();
+
+  // AI はサーバーが要るので押せない
+  await expect(
+    page.getByRole("button", { name: "AI に全体をレビューしてもらう" }),
+  ).toBeDisabled();
+
+  await context.setOffline(false);
+});
