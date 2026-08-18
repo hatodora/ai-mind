@@ -28,8 +28,6 @@ import {
 } from "node:crypto";
 import { sendMail, twoFactorMail } from "./mail";
 
-const db = getFirestore();
-
 /** コードの桁数 */
 const CODE_LENGTH = 6;
 /** 発行したコードの有効期限 */
@@ -61,7 +59,7 @@ interface Challenge {
 }
 
 function challengeRef(uid: string) {
-  return db.doc(`twoFactorChallenges/${uid}`);
+  return getFirestore().doc(`twoFactorChallenges/${uid}`);
 }
 
 /**
@@ -154,7 +152,7 @@ export async function handleStartTwoFactor(
 
   // 発行の制限はトランザクションの中で見る。
   // 連打で同時に走っても、窓の回数がすり抜けないようにするため
-  await db.runTransaction(async (tx) => {
+  await getFirestore().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const prev = snap.exists ? (snap.data() as Challenge) : null;
 
@@ -213,7 +211,7 @@ export async function handleVerifyTwoFactor(
 
   // 照合もトランザクションで。並列に送られた総当たりで
   // 試行回数がすり抜けないようにする
-  await db.runTransaction(async (tx) => {
+  await getFirestore().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) {
       throw new HttpsError(
@@ -286,7 +284,7 @@ export async function handleSetTwoFactorEnabled(
   await mergeClaims(uid, { mfaRequired: enabled });
   // 画面に出すための控え。強制しているのはあくまでクレームのほうで、
   // こちらが書けなくても守りは効いたままになる
-  await db.doc(`users/${uid}`).set(
+  await getFirestore().doc(`users/${uid}`).set(
     enabled
       ? { twoFactorEnabled: true, twoFactorEnabledAt: now, updatedAt: now }
       : {

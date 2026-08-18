@@ -28,7 +28,11 @@ service cloud.firestore {
     // 有効な人は、直近30日以内に通していなければ実質的な操作をすべて拒否する。
     // 画面側で隠すだけだと、IDトークンを直接使って Firestore を叩けてしまう。
     function mfaSatisfied() {
-      return request.auth.token.mfaRequired != true
+      // カスタムクレームが一度も付いていない大多数のユーザーでは
+      // request.auth.token.mfaRequired への直接アクセスがエラーになるため、
+      // まず存在チェックで弾く（«希望者のみの機能» が全員に影響しないように）
+      return !('mfaRequired' in request.auth.token)
+        || request.auth.token.mfaRequired != true
         || (request.auth.token.mfa is number
             && request.auth.token.mfa > request.time.toMillis() - 2592000000);
     }
