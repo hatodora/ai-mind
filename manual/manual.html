@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>思索 / Mindmap — はじめかた</title>
+<style>
+/* ============================================================
+   思索 / Mindmap 取扱説明書
+   A4 縦 / 11ページ。Apple のクイックスタート（大きな余白・少ない文字）と
+   IKEA の組立説明書（番号つきの線画・可否の対比）を下敷きにしている。
+   ============================================================ */
+
+@font-face { font-family: Satoshi; src: url(assets/Satoshi-Regular.woff2) format("woff2"); font-weight: 400; font-display: block; }
+@font-face { font-family: Satoshi; src: url(assets/Satoshi-Medium.woff2)  format("woff2"); font-weight: 500; font-display: block; }
+@font-face { font-family: Satoshi; src: url(assets/Satoshi-Bold.woff2)    format("woff2"); font-weight: 700; font-display: block; }
+
+:root {
+  --ink:      #24261f;
+  --muted:    #6b6f63;
+  --faint:    #9ba193;
+  --line:     #e0dfd9;
+  --hair:     #eeede8;
+  --panel:    #f6f5f2;
+  --accent:   #0abab5;
+  --accent-soft: #0a8f8b;
+  --accent-deep: #066e6a;
+  --tint:     #e6f7f6;
+  --warm:     #b7791f;
+  --tint-warm:#faf2e3;
+  --danger:   #d43d3d;
+  --tint-danger:#fbeeee;
+  --paper:    #edefe1;
+  --moss:     #38412f;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+body {
+  margin: 0;
+  background: #d8d7d1;
+  color: var(--ink);
+  font-family: Satoshi, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.95;
+  font-feature-settings: "palt" 1;
+}
+
+@page { size: A4 portrait; margin: 0; }
+
+.page {
+  position: relative;
+  width: 210mm;
+  height: 297mm;
+  padding: 19mm 20mm 15mm;
+  background: #fff;
+  overflow: hidden;
+  break-after: page;
+}
+.page:last-child { break-after: auto; }
+
+@media screen {
+  .page { margin: 0 auto 8mm; box-shadow: 0 2mm 8mm rgba(0,0,0,.22); }
+  body { padding: 8mm 0; }
+}
+
+/* ---------- 共通の見出し ---------- */
+
+.eyebrow {
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: .26em;
+  color: var(--accent-soft);
+  text-transform: uppercase;
+  margin-bottom: 3mm;
+}
+h1 {
+  font-size: 21pt;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  margin: 0 0 3mm;
+}
+.lead {
+  font-size: 10pt;
+  color: var(--muted);
+  line-height: 1.9;
+  margin: 0 0 9mm;
+  max-width: 128mm;
+}
+.rule { height: 1px; background: var(--line); margin: 0 0 8mm; }
+
+.micro {
+  font-size: 6.6pt;
+  font-weight: 700;
+  letter-spacing: .22em;
+  color: var(--faint);
+  text-transform: uppercase;
+}
+
+/* ---------- ページ番号 ---------- */
+
+.folio {
+  position: absolute;
+  left: 20mm; right: 20mm; bottom: 9mm;
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 6.8pt; letter-spacing: .12em; color: var(--faint);
+  border-top: 1px solid var(--hair); padding-top: 2.5mm;
+}
+.folio b { font-weight: 700; color: var(--muted); }
+
+/* ---------- 線画アイコン ---------- */
+
+.ico { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.ico--accent { stroke: var(--accent-soft); }
+.ico--danger { stroke: var(--danger); }
+
+/* ============================================================
+   1. 表紙
+   ============================================================ */
+
+.cover { padding: 24mm 20mm 15mm; display: flex; flex-direction: column; }
+.brand { display: flex; align-items: center; gap: 3mm; }
+.brand .mark {
+  width: 7mm; height: 7mm; border: 1.4px solid var(--accent); border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.brand .mark i { width: 2.4mm; height: 2.4mm; background: var(--accent); border-radius: 50%; }
+.brand .name { font-size: 12pt; font-weight: 700; letter-spacing: .02em; }
+.brand .name span { font-weight: 500; color: var(--muted); }
+
+.cover-title {
+  margin-top: 34mm;
+  font-size: 46pt; font-weight: 700; line-height: 1.12; letter-spacing: -.03em;
+}
+.cover-sub {
+  margin-top: 6mm;
+  font-size: 8pt; font-weight: 700; letter-spacing: .34em; color: var(--accent-soft);
+}
+.cover-lede {
+  margin-top: 12mm; font-size: 11pt; color: var(--muted); line-height: 2.1; max-width: 92mm;
+}
+.cover-art {
+  position: absolute; right: 16mm; bottom: 40mm; width: 62mm;
+}
+.cover-foot {
+  position: absolute; left: 20mm; right: 20mm; bottom: 15mm;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  border-top: 1px solid var(--line); padding-top: 4mm;
+  font-size: 7.4pt; color: var(--muted); letter-spacing: .06em;
+}
+
+/* ============================================================
+   2. 同梱物（IKEA のパーツ一覧）
+   ============================================================ */
+
+.parts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+.part {
+  border: 1px solid var(--line); border-radius: 3mm;
+  padding: 6mm 5mm 5mm; position: relative; text-align: center;
+  background: #fff;
+}
+.part svg { width: 17mm; height: 17mm; display: block; margin: 0 auto 4mm; }
+.part .t { font-size: 9pt; font-weight: 700; line-height: 1.6; }
+.part .d { font-size: 7.4pt; color: var(--muted); line-height: 1.7; margin-top: 1mm; }
+.qty {
+  position: absolute; top: 3mm; right: 3.5mm;
+  font-size: 7.6pt; font-weight: 700; color: var(--accent-soft);
+  letter-spacing: .04em;
+}
+.part--opt { border-style: dashed; border-color: var(--line); background: var(--panel); }
+.part--opt .qty { color: var(--faint); }
+
+.notebox {
+  margin-top: 9mm; display: flex; gap: 6mm; align-items: flex-start;
+  background: var(--panel); border-radius: 3mm; padding: 6mm 7mm;
+}
+.notebox .fig { width: 24mm; flex: none; }
+.notebox h3 { margin: 0 0 2mm; font-size: 10pt; font-weight: 700; }
+.notebox p { margin: 0 0 2.5mm; font-size: 8.6pt; color: var(--muted); line-height: 1.95; }
+.notebox p:last-child { margin-bottom: 0; }
+.notebox b { color: var(--ink); font-weight: 700; }
+
+/* ============================================================
+   3–4. 各部の名称
+   ============================================================ */
+
+.shot { border: 1px solid var(--line); border-radius: 2.5mm; overflow: hidden; background: var(--panel); }
+.shot img { display: block; width: 100%; }
+
+.callout-wrap { position: relative; }
+.pin {
+  position: absolute;
+  width: 6.4mm; height: 6.4mm; border-radius: 50%;
+  background: var(--ink); color: #fff;
+  font-size: 8pt; font-weight: 700; line-height: 6.4mm; text-align: center;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1.2mm rgba(255,255,255,.92);
+}
+.pin--accent { background: var(--accent); color: #06302e; }
+
+.legend { margin-top: 7mm; display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 9mm; }
+.legend .row { display: flex; gap: 3.5mm; align-items: baseline; }
+.legend .n {
+  flex: none; width: 5.4mm; height: 5.4mm; border-radius: 50%;
+  background: var(--ink); color: #fff;
+  font-size: 7pt; font-weight: 700; line-height: 5.4mm; text-align: center;
+}
+.legend .n.a { background: var(--accent); color: #06302e; }
+.legend .t { font-size: 8.6pt; line-height: 1.75; }
+.legend .t b { font-weight: 700; }
+.legend .t span { color: var(--muted); }
+
+/* 部分アップ */
+.details { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm 8mm; }
+.detail .cap { display: flex; gap: 3mm; align-items: baseline; margin-bottom: 2.5mm; }
+.detail .cap .n {
+  flex: none; width: 5.4mm; height: 5.4mm; border-radius: 50%;
+  background: var(--accent); color: #06302e;
+  font-size: 7pt; font-weight: 700; line-height: 5.4mm; text-align: center;
+}
+.detail .cap h3 { margin: 0; font-size: 9.4pt; font-weight: 700; }
+.detail img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 2mm; }
+.detail p { margin: 2.5mm 0 0; font-size: 8pt; color: var(--muted); line-height: 1.85; }
+
+/* ノードの3状態 */
+.states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; margin-top: 2mm; }
+.state { text-align: center; }
+.state img { height: 11mm; width: auto; max-width: 100%; }
+.state .t { margin-top: 3mm; font-size: 8.4pt; font-weight: 700; }
+.state .d { font-size: 7.4pt; color: var(--muted); line-height: 1.7; }
+
+/* ============================================================
+   5–7. STEP
+   ============================================================ */
+
+.step { display: grid; grid-template-columns: 88mm 1fr; gap: 9mm; align-items: start; }
+.step + .step { margin-top: 11mm; padding-top: 11mm; border-top: 1px solid var(--hair); }
+.step.rev { grid-template-columns: 1fr 88mm; }
+.step.rev .body { order: -1; }
+
+.step .num {
+  width: 13mm; height: 13mm; border-radius: 50%;
+  background: var(--accent); color: #06302e;
+  font-size: 15pt; font-weight: 700; line-height: 13mm; text-align: center;
+  margin-bottom: 5mm;
+}
+.step h2 { margin: 0 0 3mm; font-size: 14pt; font-weight: 700; line-height: 1.45; }
+.step p { margin: 0 0 3mm; font-size: 9pt; color: var(--muted); line-height: 1.95; }
+.step p b { color: var(--ink); font-weight: 700; }
+.step .fig { border: 1px solid var(--line); border-radius: 2.5mm; overflow: hidden; background: var(--panel); }
+.step .fig img { display: block; width: 100%; }
+.step .figcap { margin-top: 2.5mm; font-size: 7.2pt; color: var(--faint); line-height: 1.7; }
+
+.tip {
+  margin-top: 4mm; padding: 4mm 5mm; border-radius: 2.5mm;
+  background: var(--tint); font-size: 8.2pt; line-height: 1.85; color: var(--accent-deep);
+}
+.tip b { font-weight: 700; }
+.warn { background: var(--tint-warm); color: #7d5310; }
+.tip .lbl {
+  display: block; font-size: 6.6pt; font-weight: 700; letter-spacing: .22em;
+  text-transform: uppercase; opacity: .7; margin-bottom: 1mm;
+}
+
+/* ============================================================
+   8. ゲージのしくみ
+   ============================================================ */
+
+.flow { display: flex; align-items: center; gap: 4mm; margin: 2mm 0 8mm; }
+.flow .box {
+  flex: 1; border: 1.4px solid var(--ink); border-radius: 2.5mm;
+  padding: 5mm 4mm; text-align: center;
+}
+.flow .box.soft { border-color: var(--line); background: var(--panel); }
+.flow .box .t { font-size: 9pt; font-weight: 700; }
+.flow .box .d { font-size: 7.4pt; color: var(--muted); margin-top: 1mm; line-height: 1.65; }
+.flow .arrow { flex: none; width: 12mm; text-align: center; }
+.flow .arrow svg { width: 12mm; height: 8mm; }
+.flow .arrow .s { display: block; font-size: 7pt; font-weight: 700; color: var(--accent-soft); margin-top: .5mm; }
+
+.dots { display: flex; gap: 1.6mm; justify-content: center; margin-top: 2.5mm; }
+.dots i { width: 2.8mm; height: 2.8mm; border-radius: 50%; background: var(--line); display: block; }
+.dots i.on { background: var(--accent); }
+
+table.spec { width: 100%; border-collapse: collapse; font-size: 8.6pt; }
+table.spec th, table.spec td { text-align: left; padding: 3.2mm 3mm; border-bottom: 1px solid var(--hair); vertical-align: top; }
+table.spec th { font-size: 6.8pt; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); font-weight: 700; border-bottom: 1px solid var(--line); }
+table.spec td.k { font-weight: 700; width: 34mm; }
+table.spec td.v { color: var(--muted); }
+table.spec tr.on td.k { color: var(--accent-soft); }
+table.spec .badge {
+  display: inline-block; font-size: 6.6pt; font-weight: 700; letter-spacing: .1em;
+  background: var(--tint); color: var(--accent-deep); border-radius: 999px;
+  padding: .4mm 2mm; margin-left: 2mm; vertical-align: 1px;
+}
+
+/* ============================================================
+   9. コツ（可否）
+   ============================================================ */
+
+.dodont { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+.col > .hd { display: flex; align-items: center; gap: 3mm; margin-bottom: 5mm; }
+.col > .hd svg { width: 9mm; height: 9mm; }
+.col > .hd .t { font-size: 12pt; font-weight: 700; }
+.col.ok > .hd .t { color: var(--accent-deep); }
+.col.ng > .hd .t { color: var(--danger); }
+.item { padding: 4mm 0; border-top: 1px solid var(--hair); }
+.item:first-of-type { border-top: 0; padding-top: 0; }
+.item .t { font-size: 9pt; font-weight: 700; margin-bottom: 1mm; }
+.item .d { font-size: 7.8pt; color: var(--muted); line-height: 1.8; }
+
+/* ============================================================
+   10. 困ったとき
+   ============================================================ */
+
+table.trouble { width: 100%; border-collapse: collapse; font-size: 8.4pt; }
+table.trouble th { font-size: 6.8pt; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); font-weight: 700; text-align: left; padding: 0 3mm 2.5mm; border-bottom: 1px solid var(--line); }
+table.trouble td { padding: 3.6mm 3mm; border-bottom: 1px solid var(--hair); vertical-align: top; line-height: 1.8; }
+table.trouble td.q { font-weight: 700; width: 52mm; }
+table.trouble td.a { color: var(--muted); }
+table.trouble td.a b { color: var(--ink); font-weight: 700; }
+
+/* ============================================================
+   11. 裏表紙
+   ============================================================ */
+
+.index { display: grid; grid-template-columns: 1fr 1fr; gap: 0 9mm; }
+.index .row { display: flex; justify-content: space-between; gap: 4mm; padding: 2.8mm 0; border-bottom: 1px solid var(--hair); font-size: 8.4pt; }
+.index .row .k { font-weight: 700; }
+.index .row .v { color: var(--muted); font-size: 7.8pt; text-align: right; }
+
+.endmark { position: absolute; left: 20mm; right: 20mm; bottom: 26mm; text-align: center; }
+.endmark svg { width: 30mm; }
+.endmark .t { margin-top: 4mm; font-size: 9pt; font-weight: 700; }
+.endmark .d { font-size: 7.6pt; color: var(--muted); line-height: 1.85; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     P1 — 表紙
+     ============================================================ -->
+<section class="page cover">
+  <div class="brand">
+    <span class="mark"><i></i></span>
+    <span class="name">思索 <span>/ Mindmap</span></span>
+  </div>
+
+  <div class="cover-title">はじめかた</div>
+  <div class="cover-sub">QUICK START GUIDE</div>
+
+  <p class="cover-lede">
+    人間の脳で、考えよう。<br>
+    行き詰まったら AI と対話し、想像を膨らませる。
+  </p>
+
+  <img class="cover-art" src="assets/mascot-wave.svg" alt="">
+
+  <div class="cover-foot">
+    <span>取扱説明書 — 第 1 版</span>
+    <span>思索 / Mindmap</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     P2 — はじめる前に（同梱物）
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">01 — Before you start</div>
+  <h1>はじめる前に</h1>
+  <p class="lead">用意するものは、これだけです。<br>
+    アプリのインストールも、道具の組み立ても要りません。</p>
+
+  <div class="parts">
+    <div class="part">
+      <span class="qty">×1</span>
+      <svg class="ico" viewBox="0 0 64 64"><rect x="19" y="5" width="26" height="54" rx="5"/><path d="M28 11h8"/><path d="M28 53h8"/></svg>
+      <div class="t">スマートフォン</div>
+      <div class="d">パソコン・タブレットでも</div>
+    </div>
+    <div class="part">
+      <span class="qty">×1</span>
+      <svg class="ico" viewBox="0 0 64 64"><rect x="5" y="12" width="54" height="38" rx="4"/><path d="M5 22h54"/><path d="M12 17h.01"/><path d="M18 17h.01"/><path d="M24 17h.01"/><path d="M22 57h20"/><path d="M32 50v7"/></svg>
+      <div class="t">ブラウザ</div>
+      <div class="d">Safari / Chrome など</div>
+    </div>
+    <div class="part">
+      <span class="qty">×1</span>
+      <svg class="ico" viewBox="0 0 64 64"><path d="M8 24a34 34 0 0 1 48 0"/><path d="M17 34a22 22 0 0 1 30 0"/><path d="M25.5 43.5a11 11 0 0 1 13 0"/><circle cx="32" cy="52" r="2.4" fill="currentColor" stroke="none"/></svg>
+      <div class="t">インターネット</div>
+      <div class="d">AI に聞くときだけ必要</div>
+    </div>
+    <div class="part">
+      <span class="qty">×1</span>
+      <svg class="ico" viewBox="0 0 64 64"><circle cx="32" cy="32" r="24"/><path d="M32 17v15l10 6"/></svg>
+      <div class="t">15分ほどの時間</div>
+      <div class="d">最初の1枚が書けます</div>
+    </div>
+    <div class="part part--opt">
+      <span class="qty">任意</span>
+      <svg class="ico" viewBox="0 0 64 64"><rect x="7" y="15" width="50" height="34" rx="4"/><path d="M7 19l25 17 25-17"/></svg>
+      <div class="t">メールアドレス</div>
+      <div class="d">保存を残したいときだけ</div>
+    </div>
+    <div class="part part--opt">
+      <span class="qty">0</span>
+      <svg class="ico" viewBox="0 0 64 64"><circle cx="32" cy="32" r="25"/><path d="M23 23l18 18M41 23L23 41"/></svg>
+      <div class="t">アプリのインストール</div>
+      <div class="d">要りません</div>
+    </div>
+  </div>
+
+  <div class="notebox">
+    <img class="fig" src="assets/mascot-sit.svg" alt="">
+    <div>
+      <h3>アカウントは無くても、すぐ使えます</h3>
+      <p>ログインしなくてもマップは作れます。ただしその場合、マップは<b>この端末だけ</b>に保存され、最終更新から<b>30日</b>で消えます。</p>
+      <p>ログインすると、クラウドに保存されて<b>どの端末からでも開ける</b>ようになります。端末に残っているマップは、あとからまとめて取り込めます。</p>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>02</b></span></div>
+</section>
+
+<!-- ============================================================
+     P3 — 各部の名称（画面ぜんたい）
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">02 — The parts</div>
+  <h1>各部の名称</h1>
+  <p class="lead">マップを書く画面は、大きく3つに分かれています。</p>
+
+  <div class="shot callout-wrap">
+    <img src="assets/editor-desktop.png" alt="マインドマップ編集画面">
+    <span class="pin pin--accent" style="left:3.5%; top:33%">A</span>
+    <span class="pin pin--accent" style="left:62%;  top:22%">B</span>
+    <span class="pin pin--accent" style="left:30%;  top:88%">C</span>
+  </div>
+
+  <div class="legend">
+    <div class="row">
+      <span class="n a">A</span>
+      <span class="t"><b>パネル</b><br><span>テーマ・AIの設定・言葉の入力。操作はほぼここで行います。スマートフォンでは画面下から引き出すシートになります。</span></span>
+    </div>
+    <div class="row">
+      <span class="n a">B</span>
+      <span class="t"><b>キャンバス</b><br><span>マップ本体。指やマウスでドラッグして動かし、つまんで拡大縮小できます。ノードを押すと選べます。</span></span>
+    </div>
+    <div class="row">
+      <span class="n a">C</span>
+      <span class="t"><b>シコウ</b><br><span>左下にいるキャラクター。さわると反応します。押すとメニューが開きます。</span></span>
+    </div>
+  </div>
+
+  <div class="rule" style="margin:9mm 0 6mm"></div>
+  <div class="micro" style="margin-bottom:4mm">ノードの3つの状態</div>
+  <div class="states">
+    <div class="state">
+      <img src="assets/crop-node-root.png" alt="">
+      <div class="t">テーマ</div>
+      <div class="d">中心にある問い。1枚に1つ</div>
+    </div>
+    <div class="state">
+      <img src="assets/crop-node-user.png" alt="">
+      <div class="t">自分の言葉</div>
+      <div class="d">白いカード</div>
+    </div>
+    <div class="state">
+      <img src="assets/crop-node-ai.png" alt="">
+      <div class="t">AI の言葉</div>
+      <div class="d">破線＋うすい色</div>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>03</b></span></div>
+</section>
+
+<!-- ============================================================
+     P4 — 各部の名称（パネルの中身）
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">02 — The parts</div>
+  <h1>パネルの中身</h1>
+  <p class="lead">上から順に、こう並んでいます。</p>
+
+  <div class="details">
+    <div class="detail">
+      <div class="cap"><span class="n">1</span><h3>ターン表示</h3></div>
+      <img src="assets/crop-turn.png" alt="" style="width:44mm; border:0">
+      <p>いまが「あなたの番」か「AIの番」か。基本はずっとあなたの番です。</p>
+    </div>
+    <div class="detail">
+      <div class="cap"><span class="n">2</span><h3>AI アシスト</h3></div>
+      <img src="assets/crop-level.png" alt="">
+      <p>AI をどれくらい使うかを4段階から選びます。あとからいつでも変えられます。</p>
+    </div>
+    <div class="detail">
+      <div class="cap"><span class="n">3</span><h3>AI ゲージ</h3></div>
+      <img src="assets/crop-gauge.png" alt="">
+      <p>● 1つが、AI に相談できる1回分。自分でノードを足すと溜まります。</p>
+    </div>
+    <div class="detail">
+      <div class="cap"><span class="n">4</span><h3>選択中のノード</h3></div>
+      <img src="assets/crop-selected.png" alt="">
+      <p>いま選んでいる言葉。新しい言葉は、ここにぶら下がります。</p>
+    </div>
+  </div>
+
+  <div style="margin-top:7mm; display:grid; grid-template-columns:1fr 1fr; gap:6mm 8mm">
+    <div class="detail">
+      <div class="cap"><span class="n">5</span><h3>入力欄</h3></div>
+      <img src="assets/crop-input.png" alt="">
+      <p>思いついた言葉を書いて「追加する」。すぐ下の「AI にアイデアを聞く」は、ゲージが溜まると押せるようになります。</p>
+    </div>
+    <div style="align-self:end">
+      <div class="notebox" style="margin:0; padding:5mm 6mm">
+        <img class="fig" src="assets/mascot-read.svg" alt="" style="width:19mm">
+        <div>
+          <h3 style="font-size:9pt">ひとこと</h3>
+          <p style="font-size:8pt">ノードは<b>短い言葉</b>ほど扱いやすくなります。文章ではなく、単語やひとことで。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>04</b></span></div>
+</section>
+
+<!-- ============================================================
+     P5 — STEP 1・2
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">03 — Six steps</div>
+  <h1>6つのステップ</h1>
+  <p class="lead">はじめの1枚は、この順でできあがります。</p>
+
+  <div class="step">
+    <div class="fig">
+      <img src="assets/new-mobile-top.png" alt="テーマ入力画面">
+    </div>
+    <div class="body">
+      <div class="num">1</div>
+      <h2>テーマを決める</h2>
+      <p>いま気になっていることを、<b>ひとつだけ</b>書きます。<br>
+        うまい言葉にしなくて大丈夫。「転職について考えたい」くらいで十分です。</p>
+      <p>下に並ぶ例を押すと、そのまま入ります。</p>
+      <div class="tip">
+        <span class="lbl">Tip</span>
+        テーマは1枚に1つ。<b>迷ったら大きいほうを選ぶ</b>と、あとから枝を伸ばしやすくなります。
+      </div>
+    </div>
+  </div>
+
+  <div class="step rev">
+    <div class="fig">
+      <img src="assets/canvas-band.png" alt="5つ広げたマップ">
+    </div>
+    <div class="body">
+      <div class="num">2</div>
+      <h2>自分の言葉で、5つ広げる</h2>
+      <p>中心のことばを押して選び、思いついた言葉を書いて「追加する」。これを<b>5回</b>くり返します。</p>
+      <p>最初の5個は、AI に頼らず自分で出します。</p>
+      <div class="tip warn">
+        <span class="lbl">なぜ</span>
+        先に AI の答えを見てしまうと、<b>自分の考えが出てこなくなる</b>から。だから最初の5個は、わざと自分の番にしてあります。
+      </div>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>05</b></span></div>
+</section>
+
+<!-- ============================================================
+     P6 — STEP 3・4
+     ============================================================ -->
+<section class="page">
+  <div class="micro" style="margin-bottom:9mm">6つのステップ — つづき</div>
+  <div class="step">
+    <div class="fig">
+      <img src="assets/crop-gauge.png" alt="AIゲージ">
+      <div style="padding:7mm 6mm; background:#fff; border-top:1px solid var(--line)">
+        <div class="micro" style="margin-bottom:3mm">ロック中の表示</div>
+        <div class="dots" style="justify-content:flex-start">
+          <i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <p style="margin:3mm 0 0; font-size:7.6pt; color:var(--muted)">
+          あと 5 個 自分でノードを作ると、AI に相談できます
+        </p>
+      </div>
+    </div>
+    <div class="body">
+      <div class="num">3</div>
+      <h2>AI が解禁される</h2>
+      <p>5個ぶら下げると、ゲージに ● が点きます。<b>「AI にアイデアを聞く」</b>が押せるようになります。</p>
+      <p>● 1つが、相談1回分です。使うと減り、自分でノードを足すとまた溜まります。</p>
+      <div class="tip">
+        <span class="lbl">Tip</span>
+        ボタンが押せないときは、ゲージが足りないか、通信が切れています。
+      </div>
+    </div>
+  </div>
+
+  <div class="step rev">
+    <div class="fig" style="background:#fff">
+      <img src="assets/crop-suggest.png" alt="AIの提案">
+    </div>
+    <div class="body">
+      <div class="num">4</div>
+      <h2>AI に聞いて、自分で選ぶ</h2>
+      <p>AI が2〜3個の案を出します。<b>採用するかどうかを決めるのは、あなたです。</b></p>
+      <p>いる案だけ「＋」で採用。ぜんぶ違うと思ったら「スキップ」で構いません。</p>
+      <div class="tip warn">
+        <span class="lbl">注意</span>
+        <b>「全部採用」はゲージを大きく使います。</b>採用した数 × 3個ぶんのノードを自分で足すまで、次は聞けません。
+      </div>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>06</b></span></div>
+</section>
+
+<!-- ============================================================
+     P7 — STEP 5・6
+     ============================================================ -->
+<section class="page">
+  <div class="micro" style="margin-bottom:9mm">6つのステップ — つづき</div>
+  <div class="step">
+    <div class="fig" style="background:#fff; display:flex; align-items:center; justify-content:center; height:64mm">
+      <!-- ノードを選ぶ → ボタンを押す、の2手を1枚の線画で示す -->
+      <svg viewBox="0 0 220 132" style="width:74mm">
+        <g class="ico" stroke-width="1.8">
+          <rect x="8" y="20" width="86" height="30" rx="9"/>
+          <path d="M104 35h22"/><path d="M119 29l7 6-7 6"/>
+          <rect x="134" y="20" width="78" height="30" rx="15" class="ico--accent"/>
+          <g transform="translate(46,46) scale(.66)">
+            <path d="M27 37V17a4.5 4.5 0 0 1 9 0v13"/>
+            <path d="M36 27a3.8 3.8 0 0 1 7.6 0v4"/>
+            <path d="M43.6 29a3.8 3.8 0 0 1 7.6 0v11c0 8.5-5.6 15-13.6 15h-3.4c-4.6 0-7.2-2-9.8-5.8l-7-10.2a4.2 4.2 0 0 1 6.6-5.2L27 43"/>
+          </g>
+        </g>
+        <text x="51" y="39" text-anchor="middle" font-size="9.5" fill="#24261f">いまの仕事の不満</text>
+        <text x="173" y="39" text-anchor="middle" font-size="10" font-weight="700" fill="#0a8f8b">? わからない</text>
+        <text x="51" y="118" text-anchor="middle" font-size="8.5" fill="#9ba193">① ノードを選ぶ</text>
+        <text x="173" y="118" text-anchor="middle" font-size="8.5" fill="#9ba193">② 押す</text>
+      </svg>
+    </div>
+    <div class="body">
+      <div class="num">5</div>
+      <h2>わからない言葉を、解く</h2>
+      <p>ノードを選んで <b>「? このノードがわからない」</b> を押すと、AI がやさしい言葉で説明します。</p>
+      <p>説明のむずかしさは、登録した誕生日から自動で調整されます。小学生には小学生の言葉で返ります。</p>
+      <div class="tip">
+        <span class="lbl">Tip</span>
+        ノードが散らかってきたら <b>「整える」</b>。ツリー状に並べ直します。
+      </div>
+    </div>
+  </div>
+
+  <div class="step rev">
+    <div class="fig" style="background:#fff; padding:6mm">
+      <img src="assets/crop-ring.png" alt="思考のバランス" style="border-radius:2mm">
+    </div>
+    <div class="body">
+      <div class="num">6</div>
+      <h2>結論を出して、完成にする</h2>
+      <p><b>「AI に全体をレビューしてもらう」</b>を押すと、マップ全体を読んで、次の一手を提案します。根拠にしたノードは光ります。</p>
+      <p>読んだら <b>「マップを一時的に保存する」</b>。完成の印がつき、バッジがもらえます。</p>
+      <div class="tip">
+        <span class="lbl">あとで見る</span>
+        ホーム画面の輪は、<b>自分の考えと AI の提案の割合</b>です。自分の割合が高いほど、自分の頭で考えた1枚になっています。
+      </div>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>07</b></span></div>
+</section>
+
+<!-- ============================================================
+     P8 — ゲージのしくみ
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">04 — How it works</div>
+  <h1>AI ゲージのしくみ</h1>
+  <p class="lead">このアプリで AI が出し惜しみをするのは、あなたに先に考えてほしいからです。</p>
+
+  <div class="flow">
+    <div class="box soft">
+      <div class="t">自分でノードを足す</div>
+      <div class="d">1個ごとに溜まる</div>
+    </div>
+    <div class="arrow">
+      <svg class="ico ico--accent" viewBox="0 0 48 32"><path d="M4 16h34"/><path d="M30 8l9 8-9 8"/></svg>
+      <span class="s">＋</span>
+    </div>
+    <div class="box">
+      <div class="t">AI ゲージ</div>
+      <div class="dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="arrow">
+      <svg class="ico ico--accent" viewBox="0 0 48 32"><path d="M4 16h34"/><path d="M30 8l9 8-9 8"/></svg>
+      <span class="s">−</span>
+    </div>
+    <div class="box soft">
+      <div class="t">AI に相談する</div>
+      <div class="d">● 1つ を使う</div>
+    </div>
+  </div>
+
+  <div class="micro" style="margin-bottom:3mm">溜まりかたを選ぶ — AI アシスト</div>
+  <table class="spec">
+    <tr><th>レベル</th><th>溜まりかた</th><th>向いている人</th></tr>
+    <tr>
+      <td class="k">たっぷり</td>
+      <td class="v">ノード1個 = 相談2回分</td>
+      <td class="v">とにかく手数がほしい</td>
+    </tr>
+    <tr class="on">
+      <td class="k">標準<span class="badge">既定</span></td>
+      <td class="v">ノード1個 = 相談1回分</td>
+      <td class="v">迷ったらこれ</td>
+    </tr>
+    <tr>
+      <td class="k">ひかえめ</td>
+      <td class="v">ノード3個 = 相談1回分</td>
+      <td class="v">自分の頭で粘りたい</td>
+    </tr>
+    <tr>
+      <td class="k">AI なし</td>
+      <td class="v">提案を使わない</td>
+      <td class="v">完全に自力で書きたい</td>
+    </tr>
+  </table>
+
+  <div class="rule" style="margin:9mm 0 6mm"></div>
+
+  <div class="micro" style="margin-bottom:4mm">3つの決まりごと</div>
+  <table class="spec">
+    <tr>
+      <td class="k">はじめの5個</td>
+      <td class="v">自分で5個ぶら下げるまで、AI はロックされています。到達すると相談1回分が渡されます。</td>
+    </tr>
+    <tr>
+      <td class="k">全部採用</td>
+      <td class="v">まとめて採用すると、採用した数 × 3個ぶんのノードを足すまで次は聞けません。</td>
+    </tr>
+    <tr>
+      <td class="k">お助け</td>
+      <td class="v">30個以上に広げ、AI の割合が半分以下で、3分ほど手が止まったとき。ゲージと関係なく1回だけ相談できます。</td>
+    </tr>
+  </table>
+
+  <div class="notebox" style="margin-top:11mm">
+    <img class="fig" src="assets/mascot-sleep.svg" alt="">
+    <div>
+      <h3>手が止まっても、急かされません</h3>
+      <p>このアプリは通知やポップアップで先を促しません。<b>お助け</b>は、条件がそろったときにパネルの中へ静かに出てくるだけです。</p>
+      <p style="margin:0">気づかなければ、そのまま自分のペースで書き続けてください。それがいちばん良い使い方です。</p>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>08</b></span></div>
+</section>
+
+<!-- ============================================================
+     P9 — コツ（可否）
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">05 — Do &amp; Don't</div>
+  <h1>うまくいくコツ</h1>
+  <p class="lead">同じ機能でも、使い方で仕上がりが変わります。</p>
+
+  <div class="dodont">
+    <div class="col ok">
+      <div class="hd">
+        <svg class="ico ico--accent" viewBox="0 0 64 64"><circle cx="32" cy="32" r="25"/><path d="M20 33l8 9 17-20"/></svg>
+        <span class="t">こうする</span>
+      </div>
+      <div class="item">
+        <div class="t">まず自分の言葉で書く</div>
+        <div class="d">きれいでなくていい。思いついた順で、頭にある言葉のまま置きます。</div>
+      </div>
+      <div class="item">
+        <div class="t">ノードは短く</div>
+        <div class="d">単語かひとこと。長い文章は枝を伸ばしにくくなります。</div>
+      </div>
+      <div class="item">
+        <div class="t">行き詰まってから AI に聞く</div>
+        <div class="d">手が止まった場所でこそ、提案がよく効きます。</div>
+      </div>
+      <div class="item">
+        <div class="t">いらない提案は捨てる</div>
+        <div class="d">スキップしてもゲージは減りません。選ぶことも思考のうちです。</div>
+      </div>
+      <div class="item">
+        <div class="t">迷ったら「整える」</div>
+        <div class="d">並べ直すと、抜けている枝が見えてきます。</div>
+      </div>
+    </div>
+
+    <div class="col ng">
+      <div class="hd">
+        <svg class="ico ico--danger" viewBox="0 0 64 64"><circle cx="32" cy="32" r="25"/><path d="M23 23l18 18M41 23L23 41"/></svg>
+        <span class="t">こうしない</span>
+      </div>
+      <div class="item">
+        <div class="t">最初から AI に全部聞く</div>
+        <div class="d">そもそも押せません。自分で5個書くまでロックされています。</div>
+      </div>
+      <div class="item">
+        <div class="t">「全部採用」を連打する</div>
+        <div class="d">ゲージが大きく減り、しばらく相談できなくなります。</div>
+      </div>
+      <div class="item">
+        <div class="t">言葉をきれいにしようとする</div>
+        <div class="d">整えるのは最後。書く手が止まるほうが損です。</div>
+      </div>
+      <div class="item">
+        <div class="t">1つのノードに文章を詰める</div>
+        <div class="d">読み返せなくなり、AI の提案もぼやけます。</div>
+      </div>
+      <div class="item">
+        <div class="t">ログインせずに大事な1枚を書く</div>
+        <div class="d">端末にしか残らず、30日で消えます。</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:14mm; border-top:1px solid var(--line); padding-top:10mm;
+              display:flex; align-items:center; gap:9mm">
+    <img src="assets/mascot-work.svg" alt="" style="width:26mm; flex:none">
+    <div>
+      <div class="micro" style="margin-bottom:2.5mm">迷ったら、この1行</div>
+      <div style="font-size:15pt; font-weight:700; line-height:1.55">
+        AI に聞く前に、自分の言葉を ひとつ足す。
+      </div>
+      <p style="margin:3mm 0 0; font-size:8.4pt; color:var(--muted)">
+        それだけで、AI の提案は自分の考えに寄っていきます。
+      </p>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>09</b></span></div>
+</section>
+
+<!-- ============================================================
+     P10 — 困ったときは
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">06 — Troubleshooting</div>
+  <h1>困ったときは</h1>
+  <p class="lead">たいていは、次のどれかです。</p>
+
+  <table class="trouble">
+    <tr><th>こうなった</th><th>こうする</th></tr>
+    <tr>
+      <td class="q">「AI にアイデアを聞く」が押せない</td>
+      <td class="a">ゲージが足りていないか、<b>通信が切れています</b>。ノードを足すか、電波を確認してください。</td>
+    </tr>
+    <tr>
+      <td class="q">オフラインになった</td>
+      <td class="a">画面の上に帯が出ます。<b>編集はそのまま続けられます</b>。書いたものは端末に貯まり、つながった時点で自動的に同期されます。AI に聞く操作だけができません。</td>
+    </tr>
+    <tr>
+      <td class="q">マップが消えた</td>
+      <td class="a">ログインしていない場合、マップは端末だけに保存され、<b>最終更新から30日</b>で削除されます。ログインするとクラウドに残ります。</td>
+    </tr>
+    <tr>
+      <td class="q">AI の提案が的外れ</td>
+      <td class="a">設定で <b>AI の人格</b>を変えられます。アドバイザー（肯定＋指摘）／上司（問いを返す）／アナリスト（論理と逆説）の3種類です。</td>
+    </tr>
+    <tr>
+      <td class="q">説明の言葉がむずかしい</td>
+      <td class="a">説明のやさしさは<b>誕生日から自動で決まります</b>。設定の誕生日が正しいか確認してください。</td>
+    </tr>
+    <tr>
+      <td class="q">画面がまぶしい・見づらい</td>
+      <td class="a">ホーム画面の下、または設定で <b>ライト／ダーク</b>を切り替えられます。既定は端末の設定に従います。</td>
+    </tr>
+    <tr>
+      <td class="q">ログインのたびに数字を聞かれる</td>
+      <td class="a">2要素認証が有効になっています。メールに届く<b>6桁</b>を入れてください。一度通せば30日は聞かれません。設定で解除もできます。</td>
+    </tr>
+  </table>
+
+  <div class="notebox" style="margin-top:10mm">
+    <img class="fig" src="assets/mascot-annoyed.svg" alt="">
+    <div>
+      <h3>それでも直らないときは</h3>
+      <p>アプリ内の <b>「お問い合わせ」</b> から連絡してください。ホーム画面のいちばん下にあります。</p>
+      <p style="margin:0">送るときは、<b>いつ・どの画面で・何をしたか</b>の3つが書いてあると、こちらで再現できます。</p>
+    </div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — はじめかた</span><span><b>10</b></span></div>
+</section>
+
+<!-- ============================================================
+     P11 — 裏表紙
+     ============================================================ -->
+<section class="page">
+  <div class="eyebrow">07 — Index</div>
+  <h1>できること</h1>
+  <p class="lead">この説明書で触れなかったものも含めた一覧です。</p>
+
+  <div class="index">
+    <div>
+      <div class="row"><span class="k">テーマを決める</span><span class="v">1枚に1つ</span></div>
+      <div class="row"><span class="k">ノードを足す</span><span class="v">選んで書いて追加</span></div>
+      <div class="row"><span class="k">AI にアイデアを聞く</span><span class="v">ゲージ1つ</span></div>
+      <div class="row"><span class="k">わからないを解く</span><span class="v">年齢に合わせて説明</span></div>
+      <div class="row"><span class="k">全体をレビュー</span><span class="v">根拠ノードが光る</span></div>
+      <div class="row"><span class="k">整える</span><span class="v">ツリー状に並べ直す</span></div>
+      <div class="row"><span class="k">完成にする</span><span class="v">バッジがもらえる</span></div>
+    </div>
+    <div>
+      <div class="row"><span class="k">共同編集</span><span class="v">招待リンクで同時に書く</span></div>
+      <div class="row"><span class="k">コミュニティ</span><span class="v">匿名で公開・コメント</span></div>
+      <div class="row"><span class="k">バッジ</span><span class="v">これまでの記録</span></div>
+      <div class="row"><span class="k">ライト／ダーク</span><span class="v">端末に合わせるが既定</span></div>
+      <div class="row"><span class="k">オフライン編集</span><span class="v">つながると自動で同期</span></div>
+      <div class="row"><span class="k">2要素認証</span><span class="v">メールに6桁</span></div>
+      <div class="row"><span class="k">アカウント削除</span><span class="v">設定から</span></div>
+    </div>
+  </div>
+
+  <div class="endmark">
+    <img src="assets/mascot-meditate.svg" alt="" style="width:26mm">
+    <div class="t">人間の脳で、考えよう。</div>
+    <div class="d">主役はいつも、あなたの思考です。</div>
+  </div>
+
+  <div class="folio"><span>思索 / Mindmap — 取扱説明書 第1版</span><span><b>11</b></span></div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 0 140 164" fill="none"
+  stroke="#38412f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M 30 78 L 92 78 L 92 150 L 74 150 L 74 126 L 48 126 L 48 150 L 30 150 Z" fill="#edefe1"/>
+  <text x="61" y="104" text-anchor="middle" stroke="none" fill="#38412f" font-size="22" font-family="Satoshi, Helvetica, sans-serif" font-weight="700">60%</text>
+  
+  <path d="M 27.7 89 L 10.9 96.8 L 13.1 119.2 L 26.9 116.8 L 23.1 103.2 L 32.3 99" fill="#edefe1"/>
+  <path d="M 89.7 99 L 98.9 103.2 L 95.1 116.8 L 108.9 119.2 L 111.1 96.8 L 94.3 89" fill="#edefe1"/>
+  <path d="M 39 18 C 37 9 31 6 29 11" stroke="#edefe1" stroke-width="6"/>
+  <path d="M 81 18 C 83 9 89 6 91 11" stroke="#edefe1" stroke-width="6"/>
+  <path d="M 39 18 C 37 9 31 6 29 11"/>
+  <path d="M 81 18 C 83 9 89 6 91 11"/>
+  <rect x="18" y="16" width="84" height="58" rx="3" fill="#edefe1"/>
+  <path d="M 33 36 Q 45 48 57 36"/><path d="M 67 36 Q 79 48 91 36"/>
+  <g stroke-width="2.6">
+    <path d="M 25 53 L 26 60"/><path d="M 30 52 L 31 60"/><path d="M 35 53 L 36 60"/>
+    <path d="M 87 53 L 88 60"/><path d="M 92 52 L 93 60"/><path d="M 97 53 L 98 60"/>
+  </g>
+  <ellipse cx="62" cy="62" rx="6" ry="5"/>
+  <g fill="#38412f" stroke="#edefe1" stroke-width="3" paint-order="stroke">
+           <text x="99" y="36" font-size="16" font-family="Satoshi, Helvetica, sans-serif">z</text>
+           <text x="104" y="20" font-size="12" font-family="Satoshi, Helvetica, sans-serif">z</text>
+         </g>
+</svg>
