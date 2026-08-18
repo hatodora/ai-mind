@@ -7,7 +7,7 @@
 > 場合のみユーザーに質問してください。
 
 **作成日**: 2026-07-22
-**関連**: [TASKS.md](TASKS.md) の REL-03 / REL-04 / REL-05 / REL-06
+**関連**: [TASKS.md](../TASKS.md) の REL-03 / REL-04 / REL-05 / REL-06
 **前提決定事項**: [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md)、
 [プロジェクトメモリー project-phase5-specs.md]（誕生日変更制限など）
 
@@ -17,7 +17,7 @@
 
 このリポジトリには既に **メインアプリ**（`mindmap-app/`、Next.js 16 +
 Firebase）が実装済みで、Phase 1〜5 の機能開発は完了している
-（詳細: [UPGRADE_PLAN.md](UPGRADE_PLAN.md)）。
+（詳細: [UPGRADE_PLAN.md](archive/UPGRADE_PLAN.md)）。
 
 現在は「作る」フェーズから「出す・運用する」フェーズへ移行中で、
 [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) の **Phase A（公開前必須固め）**
@@ -405,5 +405,5 @@ Firebase コンソール → プロジェクト設定 → サービスアカウ�
   トークン（色・フォント）
 - `mindmap-app/AGENTS.md` — Next.js の破壊的変更に関する注意書き
   （**新規プロジェクトでも必読**）
-- [TASKS.md](TASKS.md) — REL-03〜06 のタスク定義
+- [TASKS.md](../TASKS.md) — REL-03〜06 のタスク定義
 - [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) — Phase A 全体の文脈

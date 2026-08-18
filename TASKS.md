@@ -142,7 +142,7 @@
   - 本番ドメイン名未決定
   - メール送信サービス未選定（Resend or Firebase Extensions）
   - Vercel API 連携の要否未確認
-- **Notes**: **詳細仕様は [PORTAL_ADMIN_SPEC.md](../PORTAL_ADMIN_SPEC.md) に
+- **Notes**: **詳細仕様は [PORTAL_ADMIN_SPEC.md](docs/PORTAL_ADMIN_SPEC.md) に
   分離**（新しい Claude セッションが単独で実装着手できる粒度で記述済み）。
   管理者判定は Firestore の `role` フィールドではなく Firebase カスタム
   クレーム（`admin: true`）で行うこと。段階実装を推奨（お問い合わせ管理
@@ -179,7 +179,7 @@
   - GCP 予算アラート（50/90/100%）
   - Groq の使用量アラート・上限
   - 未ログインでも AI を使わせるかの製品判断（既定は本番で不可）
-- **Notes**: **手順は [SECURITY_PRODUCTION.md](SECURITY_PRODUCTION.md) に集約**。
+- **Notes**: **手順は [SECURITY_PRODUCTION.md](docs/SECURITY_PRODUCTION.md) に集約**。
   コード側の上限が「止める」役、予算アラートが「気づく」役で、両方必要。
 
 ---
@@ -272,7 +272,7 @@
   - セッションリプレイは思考内容が映るため無効
 - **検証済み**: lint / tsc / build / vitest(75件) / E2E(6件) / ブラウザ表示
 - **Known Gaps**: Sentry アカウント作成と DSN 設定（未設定でも動作に影響なし）
-- **Notes**: 手順は [DEPLOY.md](DEPLOY.md) 参照
+- **Notes**: 手順は [DEPLOY.md](docs/DEPLOY.md) 参照
 
 ### REL-10: 利用状況モニタリング ✅ COMPLETED
 - **Status**: Completed（measurementId 設定で有効化）
@@ -291,7 +291,7 @@
   - **送るのは件数・割合・設定値のみ。テーマ名やノード本文は型で受け取れない
     ようにして誤送信を防いでいる**
 - **Known Gaps**: コスト系（Groq 消費量・Firestore 読み書き）はコンソールで
-  目視確認する運用（[DEPLOY.md](DEPLOY.md) の月次チェックに記載）
+  目視確認する運用（[DEPLOY.md](docs/DEPLOY.md) の月次チェックに記載）
 - **Notes**: 計測とエラー収集の追加はデータの扱いが変わるため、
   プライバシーポリシーに第7〜9章を追加し `TERMS_VERSION` を 2 に上げて再合意を求める
 
@@ -304,7 +304,7 @@
   - ロールバック手順（Vercel・Firestore）
   - 依存パッケージ監査を月次実行
 - **Ambition**: Small
-- **Implementation**: [DEPLOY.md](DEPLOY.md) に集約
+- **Implementation**: [DEPLOY.md](docs/DEPLOY.md) に集約
   - Vercel（本番）/ Netlify（予備）の初期設定と環境変数一覧
   - デプロイ前チェックリスト（rules/Functions を先に出す順序を明記）
   - ロールバック手順（Vercel の Promote / Firestore ルール履歴 /
@@ -385,5 +385,5 @@
 
 **参考リンク**:
 - [PHASE5_SPEC.md](mindmap-app/PHASE5_SPEC.md) — 実装仕様書
-- [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) — リリース戦略
-- [NOTION_SETUP.md](NOTION_SETUP.md) — Notion セットアップ手順
+- [RELEASE_ROADMAP.md](docs/RELEASE_ROADMAP.md) — リリース戦略
+- [NOTION_SETUP.md](docs/NOTION_SETUP.md) — Notion セットアップ手順

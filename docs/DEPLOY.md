@@ -230,5 +230,5 @@ Vercel の **Root Directory** が `mindmap-app` になっていない。
 ## 8. 関連ドキュメント
 
 - [SECURITY_PRODUCTION.md](SECURITY_PRODUCTION.md) — App Check・レートリミット・予算アラート
-- [TASKS.md](TASKS.md) — フェーズごとの進捗
+- [TASKS.md](../TASKS.md) — フェーズごとの進捗
 - [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) — リリース戦略

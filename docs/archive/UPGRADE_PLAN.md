@@ -9,7 +9,7 @@
 > NF-05 トピックカテゴライズ（結論に統合）／ SEC-01〜08 セキュリティ全数検証。
 > NF-02 3D は実装しない（ユーザー判断）。
 >
-> **以降の計画は [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) に移行**（機能開発から
+> **以降の計画は [RELEASE_ROADMAP.md](../RELEASE_ROADMAP.md) に移行**（機能開発から
 > 事業リリース準備フェーズへ）。本書は実装history として維持する。
 > 未デプロイ: `firebase deploy --only firestore:rules,functions`
 > （Phase 4 分＋NF-05 プロンプト変更＋SEC-01 ルール修正。RELEASE_ROADMAP.md REL-05 で対応）。
@@ -33,7 +33,7 @@
 > No assist は提案（ノード伸ばし）のみ無効、ノード解説・全体レビューは維持。
 > レベルは「プロフィール既定＋マップ上書き」の二層。実装: src/lib/gauge.ts に集約。
 
-> 起点: 現行MVP（[REQUIREMENTS.md](REQUIREMENTS.md) F-01〜F-16 実装済み）
+> 起点: 現行MVP（[REQUIREMENTS.md](../REQUIREMENTS.md) F-01〜F-16 実装済み）
 > 本書では新機能・既存機能アップデート・インフラ刷新・全体レビューを整理し、フェーズ分けする。
 
 ---

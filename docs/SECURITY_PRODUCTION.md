@@ -326,7 +326,7 @@ SMS と TOTP しか無く、**メールの6桁コードは提供されていな�
 
 ## 7. 関連
 
-- [TASKS.md](TASKS.md) — REL-06 の進捗
+- [TASKS.md](../TASKS.md) — REL-06 の進捗
 - [RELEASE_ROADMAP.md](RELEASE_ROADMAP.md) — リリース戦略
 - [mindmap-app/firestore.rules](mindmap-app/firestore.rules) — アクセス制御の本体
 - REL-09（エラートラッキング）— 全体上限到達の検知はこちらと合わせて

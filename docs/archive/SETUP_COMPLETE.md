@@ -7,7 +7,7 @@
 ## 📦 実装済み（私が完成させたもの）
 
 ### ✅ TASKS.md
-- **ファイル**: [TASKS.md](TASKS.md)
+- **ファイル**: [TASKS.md](../../TASKS.md)
 - **形式**: Shape UP形式（Pitch / Ambition / Scope / Known Gaps）
 - **内容**: Phase A〜D の 11 個のリリースタスク（REL-01〜11）
 - **進捗**: Phase A 1/6 完了（REL-01: F-1実装済み）、Phase B/C は To Do
@@ -36,7 +36,7 @@
 
 ### Step 1: Notion 側の準備（5 分）
 
-📖 **詳細は [NOTION_SETUP.md](NOTION_SETUP.md) を参照**
+📖 **詳細は [NOTION_SETUP.md](../NOTION_SETUP.md) を参照**
 
 ```
 1️⃣ Notion Developers で Integration を作成

@@ -257,16 +257,16 @@ Vercel → Settings → Environment Variables
 
 本番公開後：
 
-1. **月次運用開始** → [DEPLOY.md#6-1-月次](./DEPLOY.md)
+1. **月次運用開始** → [DEPLOY.md#6-1-月次](../DEPLOY.md)
    - `npm audit` 実行
    - Groq / Firebase 使用量確認
    - Sentry エラー棚卸し
 
-2. **ポータル・管理ダッシュボード** → [RELEASE_ROADMAP.md](./RELEASE_ROADMAP.md)
+2. **ポータル・管理ダッシュボード** → [RELEASE_ROADMAP.md](../RELEASE_ROADMAP.md)
    - REL-03〜05 実装（ユーザー管理・利用統計・公開停止機能）
    - 別リポジトリとしてセットアップ
 
-3. **ユーザーサポート体制** → [SECURITY_PRODUCTION.md](./SECURITY_PRODUCTION.md)
+3. **ユーザーサポート体制** → [SECURITY_PRODUCTION.md](../SECURITY_PRODUCTION.md)
    - GCP 予算アラート確認
    - オンコール体制構築（必要に応じて）
 
@@ -274,8 +274,8 @@ Vercel → Settings → Environment Variables
 
 ## 関連ドキュメント
 
-- [DEPLOY.md](./DEPLOY.md) — ロールバック・月次運用・つまずき集
-- [SECURITY_PRODUCTION.md](./SECURITY_PRODUCTION.md) — App Check・レートリミット・予算
-- [TASKS.md](./TASKS.md) — 実装状況・残りタスク
-- [RELEASE_ROADMAP.md](./RELEASE_ROADMAP.md) — リリース戦略全体
+- [DEPLOY.md](../DEPLOY.md) — ロールバック・月次運用・つまずき集
+- [SECURITY_PRODUCTION.md](../SECURITY_PRODUCTION.md) — App Check・レートリミット・予算
+- [TASKS.md](../../TASKS.md) — 実装状況・残りタスク
+- [RELEASE_ROADMAP.md](../RELEASE_ROADMAP.md) — リリース戦略全体
 

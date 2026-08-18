@@ -263,10 +263,10 @@ Go 判定が出たら：
 
 ## 📖 参考ドキュメント
 
-- [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md) — ステップバイステップガイド
+- [VERCEL_DEPLOYMENT.md](archive/VERCEL_DEPLOYMENT.md) — ステップバイステップガイド
 - [DEPLOY.md](./DEPLOY.md) — ロールバック・月次運用・つまずき集
 - [SECURITY_PRODUCTION.md](./SECURITY_PRODUCTION.md) — セキュリティ設定
-- [TASKS.md](./TASKS.md) — 実装状況・残りタスク
+- [TASKS.md](../TASKS.md) — 実装状況・残りタスク
 
 ---
 
